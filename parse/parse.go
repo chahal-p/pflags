@@ -5,43 +5,43 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/chahal-p/pargs/argsdef"
-	"github.com/chahal-p/pargs/errors"
+	"github.com/chahal-p/pflags/errors"
+	"github.com/chahal-p/pflags/flagdef"
 )
 
 type Result struct {
-	ArgsValuesForID map[int][]string
-	ArgsNameToID    map[string]int
+	FlagValuesForID map[int][]string
+	FlagsNameToID   map[string]int
 	Unparsed        []string
 }
 
-func Parse(argsDef []argsdef.ArgDef, cmdArgs []string, opts ...Option) (*Result, *errors.Error) {
+func Parse(flagDef []flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result, *errors.Error) {
 	conf := &config{}
 	for _, opt := range opts {
 		opt.set(conf)
 	}
 	result := &Result{
-		ArgsValuesForID: make(map[int][]string),
-		ArgsNameToID:    make(map[string]int),
+		FlagValuesForID: make(map[int][]string),
+		FlagsNameToID:   make(map[string]int),
 		Unparsed:        make([]string, 0),
 	}
-	var argValues []string = nil
+	var flagVals []string = nil
 	var err *errors.Error = nil
 	remaining := slices.Clone(cmdArgs)
-	for id, arg := range argsDef {
-		result.ArgsNameToID[arg.ShortName()] = id
-		result.ArgsNameToID[arg.LongName()] = id
-		argValues, remaining, err = argValue(arg, remaining)
+	for id, flag := range flagDef {
+		result.FlagsNameToID[flag.ShortName()] = id
+		result.FlagsNameToID[flag.LongName()] = id
+		flagVals, remaining, err = flagValue(flag, remaining)
 		if err != nil {
 			return nil, err
 		}
-		result.ArgsValuesForID[id] = argValues
+		result.FlagValuesForID[id] = flagVals
 	}
-	if conf.errForUnrecongnized {
+	if !conf.noErrorForUnrecognizedFlag {
 		for _, arg := range remaining {
 			if strings.Trim(arg, "-") != "" {
 				if strings.HasPrefix(arg, "--") {
-					return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Unrecognized arg: %s", arg))
+					return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Unrecognized flag: %s", arg))
 				}
 			}
 		}
@@ -50,59 +50,59 @@ func Parse(argsDef []argsdef.ArgDef, cmdArgs []string, opts ...Option) (*Result,
 	return result, nil
 }
 
-func argValue(arg argsdef.ArgDef, args []string) ([]string, []string, *errors.Error) {
+func flagValue(flag flagdef.FlagDef, cmdArgs []string) ([]string, []string, *errors.Error) {
 	var values []string
 	var remaining []string
-	size := len(args)
+	size := len(cmdArgs)
 	for i := 0; i < size; {
-		if args[i] == fmt.Sprintf("-%s", arg.ShortName()) || args[i] == fmt.Sprintf("--%s", arg.LongName()) {
+		if cmdArgs[i] == fmt.Sprintf("-%s", flag.ShortName()) || cmdArgs[i] == fmt.Sprintf("--%s", flag.LongName()) {
 			i++
-			if arg.Type() != argsdef.BOOL_ARG {
-				if err := arg.Validate(args[i]); err == nil {
-					values = append(values, args[i])
+			if flag.Type() != flagdef.BOOL_FLAG {
+				if err := flag.Validate(cmdArgs[i]); err == nil {
+					values = append(values, cmdArgs[i])
 					i++
 				} else {
 					values = append(values, "true")
 				}
 			} else {
-				if err := arg.Validate(args[i]); err != nil {
-					return nil, args, err
+				if err := flag.Validate(cmdArgs[i]); err != nil {
+					return nil, cmdArgs, err
 				}
-				values = append(values, args[i])
+				values = append(values, cmdArgs[i])
 				i++
 			}
-		} else if strings.HasPrefix(args[i], fmt.Sprintf("-%s=", arg.ShortName())) || strings.HasPrefix(args[i], fmt.Sprintf("--%s=", arg.LongName())) {
-			eqIndx := strings.Index(args[i], "=")
-			value := args[i][eqIndx+1:]
-			if err := arg.Validate(value); err != nil {
-				return nil, args, err
+		} else if strings.HasPrefix(cmdArgs[i], fmt.Sprintf("-%s=", flag.ShortName())) || strings.HasPrefix(cmdArgs[i], fmt.Sprintf("--%s=", flag.LongName())) {
+			eqIndx := strings.Index(cmdArgs[i], "=")
+			value := cmdArgs[i][eqIndx+1:]
+			if err := flag.Validate(value); err != nil {
+				return nil, cmdArgs, err
 			}
 			values = append(values, value)
 			i++
 		} else {
-			remaining = append(remaining, args[i])
+			remaining = append(remaining, cmdArgs[i])
 			i++
 		}
 	}
 	if len(values) == 0 {
-		if len(arg.DefaultValues()) > 0 {
-			values = arg.DefaultValues()
-		} else if arg.Required() {
-			msg := fmt.Sprintf("Required args missing: -%s/--%s", arg.ShortName(), arg.LongName())
-			if arg.ShortName() == "" {
-				msg = fmt.Sprintf("Required args missing: --%s", arg.LongName())
+		if len(flag.DefaultValues()) > 0 {
+			values = flag.DefaultValues()
+		} else if flag.Required() {
+			msg := fmt.Sprintf("Required flag missing: -%s/--%s", flag.ShortName(), flag.LongName())
+			if flag.ShortName() == "" {
+				msg = fmt.Sprintf("Required flag missing: --%s", flag.LongName())
 			}
-			if arg.LongName() == "" {
-				msg = fmt.Sprintf("Required args missing: -%s", arg.ShortName())
+			if flag.LongName() == "" {
+				msg = fmt.Sprintf("Required flag missing: -%s", flag.ShortName())
 			}
-			return nil, args, errors.NewError(errors.INVALID_USAGE, msg)
+			return nil, cmdArgs, errors.NewError(errors.INVALID_USAGE, msg)
 		}
 	}
 	return values, remaining, nil
 }
 
 type config struct {
-	errForUnrecongnized bool
+	noErrorForUnrecognizedFlag bool
 }
 
 type Option interface {
@@ -112,9 +112,9 @@ type Option interface {
 type errForUnrecongnized struct{}
 
 func (*errForUnrecongnized) set(conf *config) {
-	conf.errForUnrecongnized = true
+	conf.noErrorForUnrecognizedFlag = true
 }
 
-func ErrForUnrecongnizedArgs() Option {
+func NoErrorForUnrecognizedFlag() Option {
 	return &errForUnrecongnized{}
 }

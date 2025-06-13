@@ -1,4 +1,4 @@
-package argsdef
+package flagdef
 
 import (
 	"fmt"
@@ -6,21 +6,21 @@ import (
 	"slices"
 	"strconv"
 
-	"github.com/chahal-p/pargs/errors"
+	"github.com/chahal-p/pflags/errors"
 )
 
-type ArgType string
+type FlagType string
 
 const (
-	BOOL_ARG   = ArgType("boolean")
-	NUMBER_ARG = ArgType("number")
-	STRING_ARG = ArgType("string")
+	BOOL_FLAG   = FlagType("boolean")
+	NUMBER_FLAG = FlagType("number")
+	STRING_FLAG = FlagType("string")
 )
 
-type ArgDef struct {
+type FlagDef struct {
 	shortName   string
 	longName    string
-	argType     ArgType
+	flagType    FlagType
 	required    bool
 	defaultVals []string
 	allowedVals []string
@@ -28,66 +28,66 @@ type ArgDef struct {
 	strRegex    *regexp.Regexp
 }
 
-func NewBool(shortName string, longName string) *ArgDef {
-	return &ArgDef{
+func NewBool(shortName string, longName string) *FlagDef {
+	return &FlagDef{
 		shortName:   shortName,
 		longName:    longName,
-		argType:     BOOL_ARG,
+		flagType:    BOOL_FLAG,
 		allowedVals: []string{"true", "false"},
 	}
 }
 
-func NewNumber(shortName string, longName string, allowedValues []float64, lowerBound float64, upperbound float64) *ArgDef {
+func NewNumber(shortName string, longName string, allowedValues []float64, lowerBound float64, upperbound float64) *FlagDef {
 	var allowed []string
 	for _, x := range allowedValues {
 		allowed = append(allowed, fmt.Sprint(x))
 	}
-	return &ArgDef{
+	return &FlagDef{
 		shortName:   shortName,
 		longName:    longName,
-		argType:     NUMBER_ARG,
+		flagType:    NUMBER_FLAG,
 		allowedVals: allowed,
 		numRange:    []float64{lowerBound, upperbound},
 	}
 }
 
-func NewString(shortName string, longName string, AllowedValues []string, regex *regexp.Regexp) *ArgDef {
+func NewString(shortName string, longName string, AllowedValues []string, regex *regexp.Regexp) *FlagDef {
 	var allowed []string
 	for _, x := range AllowedValues {
 		allowed = append(allowed, fmt.Sprint(x))
 	}
-	return &ArgDef{
+	return &FlagDef{
 		shortName:   shortName,
 		longName:    longName,
-		argType:     STRING_ARG,
+		flagType:    STRING_FLAG,
 		allowedVals: allowed,
 		strRegex:    regex,
 	}
 }
 
-func (o *ArgDef) ShortName() string {
+func (o *FlagDef) ShortName() string {
 	return o.shortName
 }
 
-func (o *ArgDef) LongName() string {
+func (o *FlagDef) LongName() string {
 	return o.longName
 }
 
-func (o *ArgDef) Type() ArgType {
-	return o.argType
+func (o *FlagDef) Type() FlagType {
+	return o.flagType
 }
 
-func (o *ArgDef) Required() bool {
+func (o *FlagDef) Required() bool {
 	return o.required
 }
 
-func (o *ArgDef) DefaultValues() []string {
+func (o *FlagDef) DefaultValues() []string {
 	return o.defaultVals
 }
 
-func (o *ArgDef) Validate(val string) *errors.Error {
-	switch o.argType {
-	case BOOL_ARG:
+func (o *FlagDef) Validate(val string) *errors.Error {
+	switch o.flagType {
+	case BOOL_FLAG:
 		_, err := strconv.ParseBool(val)
 		if err != nil {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s can not be parsed as boolean", val))
@@ -95,7 +95,7 @@ func (o *ArgDef) Validate(val string) *errors.Error {
 		if len(o.allowedVals) > 0 && slices.Contains(o.allowedVals, val) {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
 		}
-	case NUMBER_ARG:
+	case NUMBER_FLAG:
 		parsedVal, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s can not be parsed as number", val))
@@ -106,7 +106,7 @@ func (o *ArgDef) Validate(val string) *errors.Error {
 		if parsedVal < o.numRange[0] || parsedVal > o.numRange[1] {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, number should be with in range %v", val, o.numRange))
 		}
-	case STRING_ARG:
+	case STRING_FLAG:
 		if len(o.allowedVals) > 0 && slices.Contains(o.allowedVals, val) {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
 		}
@@ -114,7 +114,7 @@ func (o *ArgDef) Validate(val string) *errors.Error {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, string should be matched by regex %q", val, o.strRegex.String()))
 		}
 	default:
-		return errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s is not a valid argument type.", o.argType))
+		return errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s is not a valid flag type.", o.flagType))
 	}
 	return nil
 }

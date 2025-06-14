@@ -123,7 +123,7 @@ func Description(desc string) Option {
 	}
 }
 
-func DefaultValues(vals []string) Option {
+func DefaultValues(vals ...string) Option {
 	return func(fc *FlagDef) *errors.Error {
 		fc.defaultVals = vals
 		return nil
@@ -137,7 +137,7 @@ func Required(required bool) Option {
 	}
 }
 
-func AllowedValues(vals []string) Option {
+func AllowedValues(vals ...string) Option {
 	return func(fc *FlagDef) *errors.Error {
 		fc.allowedVals = vals
 		return nil

@@ -9,6 +9,10 @@ type Code struct {
 	name string
 }
 
+func (o *Code) Code() int {
+	return o.code
+}
+
 func NewCode(code int, name string) Code {
 	return Code{
 		code: code,
@@ -33,6 +37,10 @@ func NewError(code Code, msg string) *Error {
 	}
 }
 
-func (o Error) Error() string {
+func (o *Error) Error() string {
 	return fmt.Sprintf("Error %s: %s", o.code.name, o.msg)
+}
+
+func (o *Error) Code() *Code {
+	return &o.code
 }

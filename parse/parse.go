@@ -10,12 +10,22 @@ import (
 )
 
 type Result struct {
-	FlagValuesForID map[int][]string
-	FlagsNameToID   map[string]int
-	Unparsed        []string
+	FlagValuesForID map[int]([]string) `json:"flagValuesForID"`
+	FlagsNameToID   map[string]int     `json:"flagsNameToID"`
+	UnparsedArgs    []string           `json:"unparsedArgs"`
 }
 
-func Parse(flagDef []flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result, *errors.Error) {
+func Get(name string, result *Result) []string {
+	var vals []string
+	if id, ok := result.FlagsNameToID[name]; ok {
+		if vals, ok = result.FlagValuesForID[id]; ok {
+			return vals
+		}
+	}
+	return nil
+}
+
+func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result, *errors.Error) {
 	conf := &config{}
 	for _, opt := range opts {
 		opt.set(conf)
@@ -23,7 +33,7 @@ func Parse(flagDef []flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result
 	result := &Result{
 		FlagValuesForID: make(map[int][]string),
 		FlagsNameToID:   make(map[string]int),
-		Unparsed:        make([]string, 0),
+		UnparsedArgs:    make([]string, 0),
 	}
 	var flagVals []string = nil
 	var err *errors.Error = nil
@@ -46,11 +56,11 @@ func Parse(flagDef []flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result
 			}
 		}
 	}
-	result.Unparsed = remaining
+	result.UnparsedArgs = remaining
 	return result, nil
 }
 
-func flagValue(flag flagdef.FlagDef, cmdArgs []string) ([]string, []string, *errors.Error) {
+func flagValue(flag *flagdef.FlagDef, cmdArgs []string) ([]string, []string, *errors.Error) {
 	var values []string
 	var remaining []string
 	size := len(cmdArgs)

@@ -12,10 +12,25 @@ import (
 type FlagType string
 
 const (
+	UNKNOWN     = FlagType("unknown")
 	BOOL_FLAG   = FlagType("boolean")
 	NUMBER_FLAG = FlagType("number")
 	STRING_FLAG = FlagType("string")
 )
+
+func TypeFromString(t string) (FlagType, *errors.Error) {
+	switch t {
+	case "boolean", "bool":
+		return BOOL_FLAG, nil
+	case "number":
+		return NUMBER_FLAG, nil
+	case "string":
+		return STRING_FLAG, nil
+	default:
+		return UNKNOWN, errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Unrecognized type: %s", t))
+	}
+
+}
 
 type FlagDef struct {
 	shortName   string
@@ -130,9 +145,9 @@ func DefaultValues(vals ...string) Option {
 	}
 }
 
-func Required(required bool) Option {
+func Required() Option {
 	return func(fc *FlagDef) *errors.Error {
-		fc.required = required
+		fc.required = true
 		return nil
 	}
 }

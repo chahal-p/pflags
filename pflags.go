@@ -12,6 +12,13 @@ import (
 	"github.com/chahal-p/pflags/parse"
 )
 
+const (
+	FlagHelpIdentifier              = "{FLAGS}"
+	EscapedFlagHelpIdentifier       = "\\{\\FLAGS\\}"
+	tmpEscapedFlagHelpIdentifier    = "\\{\\--FLAGS--\\}"
+	DoubleEscapedFlagHelpIdentifier = "\\{\\{\\FLAGS\\}\\}"
+)
+
 type Pflags struct {
 	desc        string
 	flags       []*flagdef.FlagDef
@@ -64,7 +71,11 @@ func (o *Pflags) UsageHelp() string {
 		}
 	}
 	flagContent = indent(flagContent, indentSize)
-	return strings.Replace(o.desc, "{FLAGS}", flagContent, 1)
+	usageHelp := strings.Replace(o.desc, "{FLAGS}", flagContent, 1)
+	usageHelp = strings.Join(strings.Split(usageHelp, DoubleEscapedFlagHelpIdentifier), tmpEscapedFlagHelpIdentifier)
+	usageHelp = strings.Join(strings.Split(usageHelp, EscapedFlagHelpIdentifier), FlagHelpIdentifier)
+	usageHelp = strings.Join(strings.Split(usageHelp, tmpEscapedFlagHelpIdentifier), EscapedFlagHelpIdentifier)
+	return usageHelp
 }
 
 func indent(content string, size int) string {
@@ -86,6 +97,9 @@ func indent(content string, size int) string {
 }
 
 func (o *Pflags) Add(shortName, longName string, flagType flagdef.FlagType, opts ...flagdef.Option) *errors.Error {
+	if shortName == "" && longName == "" {
+		return errors.NewError(errors.INVALID_USAGE, "Both short and long name can not be empty for a flag.")
+	}
 	flag, err := flagdef.New(shortName, longName, flagType, opts...)
 	if err != nil {
 		return err

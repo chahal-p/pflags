@@ -151,6 +151,10 @@ func (o *Pflags) Parsed() []byte {
 	return o.parsedBytes
 }
 
+func (o *Pflags) NonFlagArgs() []string {
+	return parse.NonFlagArgs(o.result)
+}
+
 func GetFromParsedBytes(name string, bytes []byte) ([]string, *errors.Error) {
 	res := &parse.Result{}
 	err := json.Unmarshal(bytes, res)

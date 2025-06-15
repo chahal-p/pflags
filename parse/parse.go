@@ -12,10 +12,13 @@ import (
 type Result struct {
 	FlagValuesForID map[int]([]string) `json:"flagValuesForID"`
 	FlagsNameToID   map[string]int     `json:"flagsNameToID"`
-	UnparsedArgs    []string           `json:"unparsedArgs"`
+	NonFlagArgs     []string           `json:"nonFlagArgs"`
 }
 
 func Get(name string, result *Result) ([]string, *errors.Error) {
+	if result == nil {
+		return nil, errors.NewError(errors.INVALID_USAGE, "Parsed result is nil.")
+	}
 	var vals []string
 	id, ok := result.FlagsNameToID[name]
 	if !ok {
@@ -28,11 +31,18 @@ func Get(name string, result *Result) ([]string, *errors.Error) {
 	return vals, nil
 }
 
+func NonFlagArgs(result *Result) []string {
+	if result == nil {
+		return nil
+	}
+	return result.NonFlagArgs[:]
+}
+
 func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, allowUnrecognizedFlags bool) (*Result, *errors.Error) {
 	result := &Result{
 		FlagValuesForID: make(map[int][]string),
 		FlagsNameToID:   make(map[string]int),
-		UnparsedArgs:    make([]string, 0),
+		NonFlagArgs:     make([]string, 0),
 	}
 	var flagVals []string = nil
 	var err *errors.Error = nil
@@ -59,7 +69,7 @@ func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, allowUnrecognizedFlags 
 			}
 		}
 	}
-	result.UnparsedArgs = remaining
+	result.NonFlagArgs = remaining
 	return result, nil
 }
 

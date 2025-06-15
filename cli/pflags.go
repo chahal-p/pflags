@@ -61,6 +61,27 @@ pflags parse:
     {FLAGS}
 `, "\n")
 
+var getDesc = strings.Trim(`
+pflags get:
+  Get value(s) of a specific flag from parsed results.
+  pflags get <flags> "$parsedData"
+
+  Example:
+    pflags get --name abc "$parsedData" 
+
+  FLAGS:
+    {FLAGS}
+`, "\n")
+
+var unparsedDesc = strings.Trim(`
+pflags unparsed:
+  Get non flag args
+  pflags unparsed "$parsedData"
+
+  FLAGS:
+    {FLAGS}
+`, "\n")
+
 func flagGet(f *pflags.Pflags, name string) []string {
 	res, err := f.Get(name)
 	if err != nil {
@@ -73,7 +94,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
 	errorExitFromError(internalPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flags details")))
 	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'")))
-	errorExitFromError(internalPflags.Add("h", "help", flagdef.STRING_FLAG, flagdef.Description("Output usage help")))
+	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage help")))
 
 	flagsPflags := pflags.New(internalPflags.UsageHelp())
 	errorExitFromError(flagsPflags.Add("s", "short", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Short name for flag.")))
@@ -130,12 +151,49 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	// fmt.Printf("\n%v", flagGet(externalPflags, "a"))
 }
 
-func getSubCommand() {
-
+func getSubCommand(args []string) {
+	flags := pflags.New(getDesc)
+	errorExitFromError(flags.Add("n", "name", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Name of flag, any one of either short or long name can be provided.")))
+	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
+	if hasHelpFlag(args) {
+		println(flags.UsageHelp())
+		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
+		return
+	}
+	errorExitFromError(flags.Parse(args))
+	nonFlagArgs := flags.NonFlagArgs()
+	if len(nonFlagArgs) == 0 {
+		errorExit(errors.INVALID_USAGE.Code(), "Parsed args data is not provided.")
+	} else if len(nonFlagArgs) > 1 {
+		errorExit(errors.INVALID_USAGE.Code(), "Only 1 non-flag arg should be given.")
+	}
+	flagName := flagGet(flags, "name")[0]
+	parsedData, err := base64.StdEncoding.DecodeString(nonFlagArgs[0])
+	if err != nil {
+		errorExit(errors.INTERNAL_ERROR.Code(), err.Error())
+	}
+	vals, gErr := pflags.GetFromParsedBytes(flagName, parsedData)
+	if gErr != nil {
+		errorExitFromError(gErr)
+	}
+	for _, val := range vals {
+		println(val)
+	}
 }
 
-func unparsedSubCommand() {
-
+func unparsedSubCommand(args []string) {
+	flags := pflags.New(unparsedDesc)
+	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
+	if hasHelpFlag(args) {
+		println(flags.UsageHelp())
+		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
+		return
+	}
+	if hasHelpFlag(args) {
+		println(flags.UsageHelp())
+		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
+		return
+	}
 }
 
 func hasHelpFlag(args []string) bool {
@@ -169,28 +227,24 @@ func main() {
 	}
 	subCmd := os.Args[1]
 	args := os.Args[2:]
-	splittedArgs := splitArgs(args, "----")
-	internalArgs := splittedArgs[0]
-	flagArgs := make([]string, 0)
-	externalArgs := make([]string, 0)
-	if len(splittedArgs) > 1 {
-		flagArgs = splittedArgs[1]
-	}
-	if len(splittedArgs) > 2 {
-		externalArgs = splittedArgs[2]
-	}
-
-	// println(fmt.Sprintf("%v\n", internalArgs))
-	// println(fmt.Sprintf("%v\n", flagArgs))
-	// println(fmt.Sprintf("%v\n", externalArgs))
 
 	switch subCmd {
 	case "parse":
+		splittedArgs := splitArgs(args, "----")
+		internalArgs := splittedArgs[0]
+		flagArgs := make([]string, 0)
+		externalArgs := make([]string, 0)
+		if len(splittedArgs) > 1 {
+			flagArgs = splittedArgs[1]
+		}
+		if len(splittedArgs) > 2 {
+			externalArgs = splittedArgs[2]
+		}
 		parseSubCommand(internalArgs, flagArgs, externalArgs)
 	case "get":
-		getSubCommand()
+		getSubCommand(args)
 	case "unparsed":
-		unparsedSubCommand()
+		unparsedSubCommand(args)
 	default:
 		errorExit(errors.INVALID_USAGE.Code(), fmt.Sprintf("Unrecognized subcommand: %s", subCmd))
 	}

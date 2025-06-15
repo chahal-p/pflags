@@ -25,6 +25,7 @@ var (
 	INVAID_VALUE         = NewCode(4, "INVAID_VALUE")
 	NOT_FOUND            = NewCode(20, "NOT_FOUND")
 	USAGE_HELP_REQUESTED = NewCode(30, "USAGE_HELP_REQUESTED")
+	INTERNAL_ERROR       = NewCode(40, "INTERNAL_ERROR")
 )
 
 type Error struct {

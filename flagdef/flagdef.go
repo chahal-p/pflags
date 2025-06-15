@@ -5,6 +5,7 @@ import (
 	"regexp"
 	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/chahal-p/pflags/errors"
 )
@@ -17,6 +18,17 @@ const (
 	NUMBER_FLAG = FlagType("number")
 	STRING_FLAG = FlagType("string")
 )
+
+func DefaultValueForType(f FlagType) string {
+	switch f {
+	case BOOL_FLAG:
+		return "false"
+	case NUMBER_FLAG:
+		return "0"
+	default:
+		return ""
+	}
+}
 
 func TypeFromString(t string) (FlagType, *errors.Error) {
 	switch t {
@@ -40,11 +52,15 @@ type FlagDef struct {
 	required    bool
 	defaultVals []string
 	allowedVals []string
-	numRange    []float64
 	strRegex    *regexp.Regexp
 }
 
 func New(shortName string, longName string, flagType FlagType, opts ...Option) (*FlagDef, *errors.Error) {
+	shortName = strings.Trim(shortName, " ")
+	longName = strings.Trim(longName, " ")
+	if shortName == "" && longName == "" {
+		return nil, errors.NewError(errors.INVALID_USAGE, "At least one of short or long flag name is required.")
+	}
 	flag := &FlagDef{
 		shortName: shortName,
 		longName:  longName,
@@ -59,10 +75,6 @@ func New(shortName string, longName string, flagType FlagType, opts ...Option) (
 
 	if len(flag.allowedVals) > 0 && (slices.Contains([]FlagType{BOOL_FLAG}, flag.flagType)) {
 		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Allowed values can not be provided for type %s", flag.flagType))
-	}
-
-	if len(flag.numRange) > 0 && (slices.Contains([]FlagType{BOOL_FLAG, STRING_FLAG}, flag.flagType)) {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Number range can not be provided for type %s", flag.flagType))
 	}
 
 	if flag.strRegex != nil && (slices.Contains([]FlagType{BOOL_FLAG, NUMBER_FLAG}, flag.flagType)) {
@@ -98,33 +110,23 @@ func (o *FlagDef) Description() string {
 func (o *FlagDef) Validate(val string) *errors.Error {
 	switch o.flagType {
 	case BOOL_FLAG:
-		_, err := strconv.ParseBool(val)
-		if err != nil {
-			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s can not be parsed as boolean", val))
-		}
-		if len(o.allowedVals) > 0 && slices.Contains(o.allowedVals, val) {
-			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
+		if val != "false" && val != "true" {
+			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, boolean can only take true or false.", val))
 		}
 	case NUMBER_FLAG:
-		parsedVal, err := strconv.ParseFloat(val, 64)
+		_, err := strconv.ParseFloat(val, 64)
 		if err != nil {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s can not be parsed as number", val))
 		}
-		if len(o.allowedVals) > 0 && slices.Contains(o.allowedVals, val) {
-			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
-		}
-		if parsedVal < o.numRange[0] || parsedVal > o.numRange[1] {
-			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, number should be with in range %v", val, o.numRange))
-		}
 	case STRING_FLAG:
-		if len(o.allowedVals) > 0 && slices.Contains(o.allowedVals, val) {
-			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
-		}
 		if o.strRegex != nil && !o.strRegex.Match([]byte(val)) {
 			return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, string should be matched by regex %q", val, o.strRegex.String()))
 		}
 	default:
 		return errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s is not a valid flag type.", o.flagType))
+	}
+	if len(o.allowedVals) > 0 && !slices.Contains(o.allowedVals, val) {
+		return errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("Invalid value: %s, allowed values: %v", val, o.allowedVals))
 	}
 	return nil
 }
@@ -145,9 +147,9 @@ func DefaultValues(vals ...string) Option {
 	}
 }
 
-func Required() Option {
+func Required(required bool) Option {
 	return func(fc *FlagDef) *errors.Error {
-		fc.required = true
+		fc.required = required
 		return nil
 	}
 }
@@ -159,15 +161,11 @@ func AllowedValues(vals ...string) Option {
 	}
 }
 
-func NumberRange(lowerBound, upperBound float64) Option {
-	return func(fc *FlagDef) *errors.Error {
-		fc.numRange = []float64{lowerBound, upperBound}
-		return nil
-	}
-}
-
 func StringRegex(regex string) Option {
 	return func(fc *FlagDef) *errors.Error {
+		if regex == "" {
+			return nil
+		}
 		complied, err := regexp.Compile(regex)
 		if err != nil {
 			return errors.NewError(errors.INVALID_USAGE, err.Error())

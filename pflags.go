@@ -19,17 +19,30 @@ const (
 	DoubleEscapedFlagHelpIdentifier = "\\{\\{\\FLAGS\\}\\}"
 )
 
-type Pflags struct {
-	desc        string
-	flags       []*flagdef.FlagDef
-	result      *parse.Result
-	parsedBytes []byte
+type Option func(*Pflags)
+
+func AllowUnrecognizedFlags() Option {
+	return func(o *Pflags) {
+		o.allowUnrecognizedFlags = true
+	}
 }
 
-func New(desc string) *Pflags {
-	return &Pflags{
+type Pflags struct {
+	desc                   string
+	allowUnrecognizedFlags bool
+	flags                  []*flagdef.FlagDef
+	result                 *parse.Result
+	parsedBytes            []byte
+}
+
+func New(desc string, opts ...Option) *Pflags {
+	obj := &Pflags{
 		desc: desc,
 	}
+	for _, opt := range opts {
+		opt(obj)
+	}
+	return obj
 }
 
 func (o *Pflags) UsageHelp() string {
@@ -75,6 +88,9 @@ func (o *Pflags) UsageHelp() string {
 	usageHelp = strings.Join(strings.Split(usageHelp, DoubleEscapedFlagHelpIdentifier), tmpEscapedFlagHelpIdentifier)
 	usageHelp = strings.Join(strings.Split(usageHelp, EscapedFlagHelpIdentifier), FlagHelpIdentifier)
 	usageHelp = strings.Join(strings.Split(usageHelp, tmpEscapedFlagHelpIdentifier), EscapedFlagHelpIdentifier)
+
+	usageHelp = strings.Join(strings.Split(usageHelp, "\\n"), "\n")
+
 	return usageHelp
 }
 
@@ -109,7 +125,9 @@ func (o *Pflags) Add(shortName, longName string, flagType flagdef.FlagType, opts
 }
 
 func (o *Pflags) Parse(cmdArgs []string) *errors.Error {
-	res, err := parse.Parse(o.flags, cmdArgs)
+	o.result = nil
+	o.parsedBytes = nil
+	res, err := parse.Parse(o.flags, cmdArgs, o.allowUnrecognizedFlags)
 	if err != nil {
 		return err
 	}
@@ -119,11 +137,13 @@ func (o *Pflags) Parse(cmdArgs []string) *errors.Error {
 	}
 	o.result = res
 	o.parsedBytes = resBytes
-
+	// var buf bytes.Buffer
+	// json.Indent(&buf, resBytes, "", "    ")
+	// println(buf.String())
 	return nil
 }
 
-func (o *Pflags) Get(name string) []string {
+func (o *Pflags) Get(name string) ([]string, *errors.Error) {
 	return parse.Get(name, o.result)
 }
 
@@ -137,5 +157,5 @@ func GetFromParsedBytes(name string, bytes []byte) ([]string, *errors.Error) {
 	if err != nil {
 		return nil, errors.NewError(errors.INVALID_USAGE, err.Error())
 	}
-	return parse.Get(name, res), nil
+	return parse.Get(name, res)
 }

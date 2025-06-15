@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/base64"
+	"fmt"
 	"os"
 	"slices"
 	"strings"
@@ -16,6 +18,9 @@ func errorExit(code int, msg string) {
 }
 
 func errorExitFromError(err *errors.Error) {
+	if err == nil {
+		return
+	}
 	errorExit(err.Code().Code(), err.Error())
 }
 
@@ -56,46 +61,80 @@ pflags parse:
     {FLAGS}
 `, "\n")
 
-func parse(internalArgs, flagArgs, externalArgs []string) {
+func flagGet(f *pflags.Pflags, name string) []string {
+	res, err := f.Get(name)
+	if err != nil {
+		errorExitFromError(err)
+	}
+	return res
+}
+
+func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
-	internalPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flags details"))
-	internalPflags.Add("h", "help", flagdef.STRING_FLAG, flagdef.Description("Output usage help"))
+	errorExitFromError(internalPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flags details")))
+	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'")))
+	errorExitFromError(internalPflags.Add("h", "help", flagdef.STRING_FLAG, flagdef.Description("Output usage help")))
 
 	flagsPflags := pflags.New(internalPflags.UsageHelp())
-	flagsPflags.Add("s", "short", flagdef.STRING_FLAG, flagdef.Description("Short name for flag."))
-	flagsPflags.Add("l", "long", flagdef.STRING_FLAG, flagdef.Description("Long name for flag."))
-	flagsPflags.Add("t", "type", flagdef.STRING_FLAG, flagdef.Required(), flagdef.Description("Type of flag.\n  Allowed values: string, number, bool"), flagdef.AllowedValues("string", "number", "bool"))
-	flagsPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.Required(), flagdef.Description("Description of the flag."))
-	flagsPflags.Add("r", "required", flagdef.STRING_FLAG, flagdef.DefaultValues("false"), flagdef.Description("If a flag is required"))
-	flagsPflags.Add("", "default", flagdef.STRING_FLAG, flagdef.Description("Default values\n  (Can be specified multiple times)."))
-	flagsPflags.Add("a", "allowed", flagdef.STRING_FLAG, flagdef.Description("Allowed Values\n  (Can be specified multiple times)."))
-	flagsPflags.Add("", "regex", flagdef.STRING_FLAG, flagdef.Description("Regex for string validatin\n  (Only applicable to --type=string)."))
+	errorExitFromError(flagsPflags.Add("s", "short", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Short name for flag.")))
+	errorExitFromError(flagsPflags.Add("l", "long", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Long name for flag.")))
+	errorExitFromError(flagsPflags.Add("t", "type", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Type of flag.\n  Allowed values: string, number, bool"), flagdef.AllowedValues("string", "number", "bool")))
+	errorExitFromError(flagsPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Description of the flag.")))
+	errorExitFromError(flagsPflags.Add("r", "required", flagdef.BOOL_FLAG, flagdef.DefaultValues("false"), flagdef.Description("If a flag is required")))
+	errorExitFromError(flagsPflags.Add("", "default", flagdef.STRING_FLAG, flagdef.Description("Default values\n  (Can be specified multiple times).")))
+	errorExitFromError(flagsPflags.Add("a", "allowed", flagdef.STRING_FLAG, flagdef.Description("Allowed Values\n  (Can be specified multiple times).")))
+	errorExitFromError(flagsPflags.Add("", "regex", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Regex for string validatin\n  (Only applicable to --type=string).")))
 	if hasHelpFlag(internalArgs) {
 		println(flagsPflags.UsageHelp())
 		return
 	}
+	if len(flagArgs) == 0 {
+		errorExit(errors.INVALID_USAGE.Code(), "No flags provided")
+	}
 	if err := internalPflags.Parse(internalArgs); err != nil {
 		errorExitFromError(err)
 	}
-	externalPflags := pflags.New(internalPflags.Get("description")[0])
+	var opts []pflags.Option
+	if flagGet(internalPflags, "unrecognized-flags")[0] == "allow" {
+		opts = append(opts, pflags.AllowUnrecognizedFlags())
+	}
+
+	externalPflags := pflags.New(flagGet(internalPflags, "description")[0], opts...)
 	for _, args := range splitArgs(flagArgs, "--") {
 		if err := flagsPflags.Parse(args); err != nil {
 			errorExitFromError(err)
 		}
-		t, err := flagdef.TypeFromString(flagsPflags.Get("type")[0])
+		t, err := flagdef.TypeFromString(flagGet(flagsPflags, "type")[0])
 		if err != nil {
 			errorExitFromError(err)
 		}
 		var opts []flagdef.Option
-		opts = append(opts, flagdef.AllowedValues(flagsPflags.Get("allowed")...))
-		opts = append(opts, flagdef.DefaultValues(flagsPflags.Get("default")...))
-		opts = append(opts, flagdef.StringRegex(flagsPflags.Get("regex")[0]))
-		opts = append(opts, flagdef.Description(flagsPflags.Get("description")[0]))
-		externalPflags.Add(flagsPflags.Get("short")[0], flagsPflags.Get("long")[0], t, opts...)
+		opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))
+		opts = append(opts, flagdef.DefaultValues(flagGet(flagsPflags, "default")...))
+		opts = append(opts, flagdef.AllowedValues(flagGet(flagsPflags, "allowed")...))
+		opts = append(opts, flagdef.StringRegex(flagGet(flagsPflags, "regex")[0]))
+		if flagGet(flagsPflags, "required")[0] == "true" {
+			opts = append(opts, flagdef.Required(true))
+		}
+		errorExitFromError(externalPflags.Add(flagGet(flagsPflags, "short")[0], flagGet(flagsPflags, "long")[0], t, opts...))
+	}
+	if hasHelpFlag(externalArgs) {
+		println(externalPflags.UsageHelp())
+		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
+		return
 	}
 	if err := externalPflags.Parse(externalArgs); err != nil {
 		errorExitFromError(err)
 	}
+	print(base64.StdEncoding.EncodeToString(externalPflags.Parsed()))
+	// fmt.Printf("\n%v", flagGet(externalPflags, "a"))
+}
+
+func getSubCommand() {
+
+}
+
+func unparsedSubCommand() {
 
 }
 
@@ -141,18 +180,18 @@ func main() {
 		externalArgs = splittedArgs[2]
 	}
 
-	if len(internalArgs) == 0 {
-		errorExit(errors.INVALID_USAGE.Code(), "No flags provided")
-	}
+	// println(fmt.Sprintf("%v\n", internalArgs))
+	// println(fmt.Sprintf("%v\n", flagArgs))
+	// println(fmt.Sprintf("%v\n", externalArgs))
 
 	switch subCmd {
 	case "parse":
-		parse(internalArgs, flagArgs, externalArgs)
+		parseSubCommand(internalArgs, flagArgs, externalArgs)
 	case "get":
-
+		getSubCommand()
 	case "unparsed":
-
+		unparsedSubCommand()
 	default:
-		errorExit(errors.INVALID_USAGE.Code(), "Unrecognized subcommand.")
+		errorExit(errors.INVALID_USAGE.Code(), fmt.Sprintf("Unrecognized subcommand: %s", subCmd))
 	}
 }

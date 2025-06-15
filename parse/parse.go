@@ -15,21 +15,20 @@ type Result struct {
 	UnparsedArgs    []string           `json:"unparsedArgs"`
 }
 
-func Get(name string, result *Result) []string {
+func Get(name string, result *Result) ([]string, *errors.Error) {
 	var vals []string
-	if id, ok := result.FlagsNameToID[name]; ok {
-		if vals, ok = result.FlagValuesForID[id]; ok {
-			return vals
-		}
+	id, ok := result.FlagsNameToID[name]
+	if !ok {
+		return nil, errors.NewError(errors.NOT_FOUND, fmt.Sprintf("Flag %s not found in parsed result.", name))
 	}
-	return nil
+	vals, ok = result.FlagValuesForID[id]
+	if !ok {
+		return nil, errors.NewError(errors.NOT_FOUND, fmt.Sprintf("ID %d for flag %s can not be found in parsed result.", id, name))
+	}
+	return vals, nil
 }
 
-func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Result, *errors.Error) {
-	conf := &config{}
-	for _, opt := range opts {
-		opt.set(conf)
-	}
+func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, allowUnrecognizedFlags bool) (*Result, *errors.Error) {
 	result := &Result{
 		FlagValuesForID: make(map[int][]string),
 		FlagsNameToID:   make(map[string]int),
@@ -39,18 +38,22 @@ func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, opts ...Option) (*Resul
 	var err *errors.Error = nil
 	remaining := slices.Clone(cmdArgs)
 	for id, flag := range flagDef {
-		result.FlagsNameToID[flag.ShortName()] = id
-		result.FlagsNameToID[flag.LongName()] = id
+		if flag.ShortName() != "" {
+			result.FlagsNameToID[flag.ShortName()] = id
+		}
+		if flag.LongName() != "" {
+			result.FlagsNameToID[flag.LongName()] = id
+		}
 		flagVals, remaining, err = flagValue(flag, remaining)
 		if err != nil {
 			return nil, err
 		}
 		result.FlagValuesForID[id] = flagVals
 	}
-	if !conf.noErrorForUnrecognizedFlag {
+	if !allowUnrecognizedFlags {
 		for _, arg := range remaining {
 			if strings.Trim(arg, "-") != "" {
-				if strings.HasPrefix(arg, "--") {
+				if strings.HasPrefix(arg, "-") {
 					return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Unrecognized flag: %s", arg))
 				}
 			}
@@ -65,21 +68,28 @@ func flagValue(flag *flagdef.FlagDef, cmdArgs []string) ([]string, []string, *er
 	var remaining []string
 	size := len(cmdArgs)
 	for i := 0; i < size; {
+		fn := cmdArgs[i]
 		if cmdArgs[i] == fmt.Sprintf("-%s", flag.ShortName()) || cmdArgs[i] == fmt.Sprintf("--%s", flag.LongName()) {
 			i++
-			if flag.Type() != flagdef.BOOL_FLAG {
-				if err := flag.Validate(cmdArgs[i]); err == nil {
+			if flag.Type() == flagdef.BOOL_FLAG {
+				var err *errors.Error
+				if i < len(cmdArgs) {
+					err = flag.Validate(cmdArgs[i])
+				}
+				if i < len(cmdArgs) && err == nil {
 					values = append(values, cmdArgs[i])
 					i++
 				} else {
 					values = append(values, "true")
 				}
-			} else {
+			} else if i < len(cmdArgs) && !strings.HasPrefix(cmdArgs[i], "-") {
 				if err := flag.Validate(cmdArgs[i]); err != nil {
 					return nil, cmdArgs, err
 				}
 				values = append(values, cmdArgs[i])
 				i++
+			} else {
+				return nil, cmdArgs, errors.NewError(errors.INVAID_VALUE, fmt.Sprintf("No value provided for flag %s", fn))
 			}
 		} else if strings.HasPrefix(cmdArgs[i], fmt.Sprintf("-%s=", flag.ShortName())) || strings.HasPrefix(cmdArgs[i], fmt.Sprintf("--%s=", flag.LongName())) {
 			eqIndx := strings.Index(cmdArgs[i], "=")
@@ -95,9 +105,7 @@ func flagValue(flag *flagdef.FlagDef, cmdArgs []string) ([]string, []string, *er
 		}
 	}
 	if len(values) == 0 {
-		if len(flag.DefaultValues()) > 0 {
-			values = flag.DefaultValues()
-		} else if flag.Required() {
+		if flag.Required() {
 			msg := fmt.Sprintf("Required flag missing: -%s/--%s", flag.ShortName(), flag.LongName())
 			if flag.ShortName() == "" {
 				msg = fmt.Sprintf("Required flag missing: --%s", flag.LongName())
@@ -107,24 +115,9 @@ func flagValue(flag *flagdef.FlagDef, cmdArgs []string) ([]string, []string, *er
 			}
 			return nil, cmdArgs, errors.NewError(errors.INVALID_USAGE, msg)
 		}
+		if len(flag.DefaultValues()) > 0 {
+			values = flag.DefaultValues()
+		}
 	}
 	return values, remaining, nil
-}
-
-type config struct {
-	noErrorForUnrecognizedFlag bool
-}
-
-type Option interface {
-	set(conf *config)
-}
-
-type errForUnrecongnized struct{}
-
-func (*errForUnrecongnized) set(conf *config) {
-	conf.noErrorForUnrecognizedFlag = true
-}
-
-func NoErrorForUnrecognizedFlag() Option {
-	return &errForUnrecongnized{}
 }

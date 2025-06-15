@@ -12,8 +12,18 @@ import (
 	"github.com/chahal-p/pflags/flagdef"
 )
 
+func stdOutput(out string) {
+	os.Stdout.WriteString(out)
+	os.Exit(0)
+}
+
+func outputUsageHelp(out string) {
+	os.Stdout.WriteString(strings.Trim(out, "\n") + "\n")
+	os.Exit(errors.USAGE_HELP_REQUESTED.Code())
+}
+
 func errorExit(code int, msg string) {
-	println(msg)
+	os.Stderr.WriteString(msg)
 	os.Exit(code)
 }
 
@@ -93,7 +103,7 @@ func flagGet(f *pflags.Pflags, name string) []string {
 func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
 	errorExitFromError(internalPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flags details")))
-	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'")))
+	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.DefaultValues("error"), flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'\n  Default is error.")))
 	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage help")))
 
 	flagsPflags := pflags.New(internalPflags.UsageHelp())
@@ -106,8 +116,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	errorExitFromError(flagsPflags.Add("a", "allowed", flagdef.STRING_FLAG, flagdef.Description("Allowed Values\n  (Can be specified multiple times).")))
 	errorExitFromError(flagsPflags.Add("", "regex", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Regex for string validatin\n  (Only applicable to --type=string).")))
 	if hasHelpFlag(internalArgs) {
-		println(flagsPflags.UsageHelp())
-		return
+		outputUsageHelp(flagsPflags.UsageHelp())
 	}
 	if len(flagArgs) == 0 {
 		errorExit(errors.INVALID_USAGE.Code(), "No flags provided")
@@ -140,15 +149,12 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 		errorExitFromError(externalPflags.Add(flagGet(flagsPflags, "short")[0], flagGet(flagsPflags, "long")[0], t, opts...))
 	}
 	if hasHelpFlag(externalArgs) {
-		println(externalPflags.UsageHelp())
-		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
-		return
+		outputUsageHelp(externalPflags.UsageHelp())
 	}
 	if err := externalPflags.Parse(externalArgs); err != nil {
 		errorExitFromError(err)
 	}
-	print(base64.StdEncoding.EncodeToString(externalPflags.Parsed()))
-	// fmt.Printf("\n%v", flagGet(externalPflags, "a"))
+	stdOutput(base64.StdEncoding.EncodeToString(externalPflags.Parsed()))
 }
 
 func getSubCommand(args []string) {
@@ -156,9 +162,7 @@ func getSubCommand(args []string) {
 	errorExitFromError(flags.Add("n", "name", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Name of flag, any one of either short or long name can be provided.")))
 	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
 	if hasHelpFlag(args) {
-		println(flags.UsageHelp())
-		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
-		return
+		outputUsageHelp(flags.UsageHelp())
 	}
 	errorExitFromError(flags.Parse(args))
 	nonFlagArgs := flags.NonFlagArgs()
@@ -176,23 +180,18 @@ func getSubCommand(args []string) {
 	if gErr != nil {
 		errorExitFromError(gErr)
 	}
-	for _, val := range vals {
-		println(val)
-	}
+
+	stdOutput(strings.Join(vals, "\n"))
 }
 
 func unparsedSubCommand(args []string) {
 	flags := pflags.New(unparsedDesc)
 	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
 	if hasHelpFlag(args) {
-		println(flags.UsageHelp())
-		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
-		return
+		outputUsageHelp(flags.UsageHelp())
 	}
 	if hasHelpFlag(args) {
-		println(flags.UsageHelp())
-		os.Exit(errors.USAGE_HELP_REQUESTED.Code())
-		return
+		outputUsageHelp(flags.UsageHelp())
 	}
 }
 
@@ -221,9 +220,13 @@ func splitArgs(args []string, cutstring string) [][]string {
 }
 
 func main() {
+	defer func() {
+		if r := recover(); r != nil {
+			errorExit(errors.INTERNAL_ERROR.Code(), fmt.Sprintf("INTERNAL_ERROR(Something went wrong): %v\n", r))
+		}
+	}()
 	if hasHelpFlag(os.Args[1:2]) {
-		println(rootHelp)
-		return
+		outputUsageHelp(rootHelp)
 	}
 	subCmd := os.Args[1]
 	args := os.Args[2:]

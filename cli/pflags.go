@@ -23,7 +23,9 @@ func outputUsageHelp(out string) {
 }
 
 func errorExit(code int, msg string) {
-	os.Stderr.WriteString(msg)
+	red := "\033[31m"
+	reset := "\033[0m"
+	os.Stderr.WriteString(fmt.Sprintf("%s%s%s\n", red, msg, reset))
 	os.Exit(code)
 }
 

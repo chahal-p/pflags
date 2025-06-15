@@ -58,7 +58,7 @@ func (o *Pflags) UsageHelp() string {
 		maxShortName = math.Max(maxShortName, float64(len(f.ShortName())+1))
 		maxLongName = math.Max(maxLongName, float64(len(f.LongName())+2))
 	}
-	flagContentFormat := "%" + strconv.Itoa(int(maxShortName)) + "s%s  %" + strconv.Itoa(int(maxLongName)) + "s    "
+	flagContentFormat := "%" + strconv.Itoa(int(maxShortName)) + "s%s  %" + strconv.Itoa(int(maxLongName)) + "s    %s    "
 	for _, f := range o.flags {
 		sn := ""
 		ln := ""
@@ -72,7 +72,11 @@ func (o *Pflags) UsageHelp() string {
 		if sn != "" && ln != "" {
 			sep = ","
 		}
-		line := fmt.Sprintf(flagContentFormat, sn, sep, ln)
+		ro := "optional"
+		if f.Required() {
+			ro = "required"
+		}
+		line := fmt.Sprintf(flagContentFormat, sn, sep, ln, ro)
 		flagContent += line + indent(f.Description(), len(line)) + "\n"
 	}
 	indentSize := 0

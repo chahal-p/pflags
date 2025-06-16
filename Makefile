@@ -5,10 +5,12 @@ build:
 	go build -o ./out/$(BINARY_NAME) $(GO_FILES)
 
 install:
-	cp ./out/$(BINARY_NAME) /usr/local/bin/$(BINARY_NAME)
-	chmod +x /usr/local/bin/$(BINARY_NAME)
+	cp ./out/$(BINARY_NAME) $(INSTALLATION_PATH)/$(BINARY_NAME)
+	chmod +x $(INSTALLATION_PATH)/$(BINARY_NAME)
 
 clean:
 	go clean
 	rm -f -r ./out
 
+uninstall:
+	rm -f $(INSTALLATION_PATH)/$(BINARY_NAME)

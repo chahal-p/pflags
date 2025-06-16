@@ -187,14 +187,30 @@ func getSubCommand(args []string) {
 }
 
 func unparsedSubCommand(args []string) {
+	if len(args) == 0 {
+		errorExit(errors.INVALID_USAGE.Code(), "No argument provided.")
+	}
 	flags := pflags.New(unparsedDesc)
 	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
 	if hasHelpFlag(args) {
 		outputUsageHelp(flags.UsageHelp())
 	}
-	if hasHelpFlag(args) {
-		outputUsageHelp(flags.UsageHelp())
+	errorExitFromError(flags.Parse(args))
+	nonFlagArgs := flags.NonFlagArgs()
+	if len(nonFlagArgs) == 0 {
+		errorExit(errors.INVALID_USAGE.Code(), "Parsed args data is not provided.")
+	} else if len(nonFlagArgs) > 1 {
+		errorExit(errors.INVALID_USAGE.Code(), "Only 1 non-flag arg should be given.")
 	}
+	parsedData, err := base64.StdEncoding.DecodeString(nonFlagArgs[0])
+	if err != nil {
+		errorExit(errors.INTERNAL_ERROR.Code(), err.Error())
+	}
+	vals, gErr := pflags.NonFlagArgsFromBytes(parsedData)
+	if gErr != nil {
+		errorExitFromError(gErr)
+	}
+	stdOutput(strings.Join(vals, "\n"))
 }
 
 func hasHelpFlag(args []string) bool {

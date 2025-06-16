@@ -1,6 +1,7 @@
 package parse
 
 import (
+	"encoding/json"
 	"fmt"
 	"slices"
 	"strings"
@@ -13,6 +14,18 @@ type Result struct {
 	FlagValuesForID map[int]([]string) `json:"flagValuesForID"`
 	FlagsNameToID   map[string]int     `json:"flagsNameToID"`
 	NonFlagArgs     []string           `json:"nonFlagArgs"`
+}
+
+func ResultFromBytes(bytes []byte) (*Result, *errors.Error) {
+	if len(bytes) == 0 {
+		return nil, errors.NewError(errors.ERROR, "Parsed data can not empty")
+	}
+	res := &Result{}
+	err := json.Unmarshal(bytes, res)
+	if err != nil {
+		return nil, errors.NewError(errors.INVALID_USAGE, err.Error())
+	}
+	return res, nil
 }
 
 func Get(name string, result *Result) ([]string, *errors.Error) {

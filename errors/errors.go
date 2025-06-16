@@ -21,6 +21,7 @@ func NewCode(code int, name string) Code {
 }
 
 var (
+	ERROR                = NewCode(2, "ERROR")
 	INVALID_USAGE        = NewCode(2, "INVALID_USAGE")
 	INVAID_VALUE         = NewCode(4, "INVAID_VALUE")
 	NOT_FOUND            = NewCode(20, "NOT_FOUND")
@@ -41,7 +42,7 @@ func NewError(code Code, msg string) *Error {
 }
 
 func (o *Error) Error() string {
-	return fmt.Sprintf("Error %s: %s", o.code.name, o.msg)
+	return fmt.Sprintf("%s: %s", o.code.name, o.msg)
 }
 
 func (o *Error) Code() *Code {

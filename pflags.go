@@ -159,11 +159,18 @@ func (o *Pflags) NonFlagArgs() []string {
 	return parse.NonFlagArgs(o.result)
 }
 
-func GetFromParsedBytes(name string, bytes []byte) ([]string, *errors.Error) {
-	res := &parse.Result{}
-	err := json.Unmarshal(bytes, res)
+func NonFlagArgsFromBytes(bytes []byte) ([]string, *errors.Error) {
+	res, err := parse.ResultFromBytes(bytes)
 	if err != nil {
-		return nil, errors.NewError(errors.INVALID_USAGE, err.Error())
+		return nil, err
+	}
+	return parse.NonFlagArgs(res), nil
+}
+
+func GetFromParsedBytes(name string, bytes []byte) ([]string, *errors.Error) {
+	res, err := parse.ResultFromBytes(bytes)
+	if err != nil {
+		return nil, err
 	}
 	return parse.Get(name, res)
 }

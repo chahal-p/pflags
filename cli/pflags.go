@@ -81,6 +81,9 @@ pflags get:
   Example:
     pflags get --name abc "$parsedData" 
 
+  Multiple values output can be converted to array by following command
+    readarray -t x <<< $(pflags get --name abc "$parsedData")
+
   FLAGS:
     {FLAGS}
 `, "\n")
@@ -89,6 +92,9 @@ var unparsedDesc = strings.Trim(`
 pflags unparsed:
   Get non flag args
   pflags unparsed "$parsedData"
+
+  Multiple values output can be converted to array by following command
+    readarray -t x <<< $(pflags unparsed "$parsedData")
 
   FLAGS:
     {FLAGS}

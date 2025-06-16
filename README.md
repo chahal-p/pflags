@@ -10,7 +10,7 @@
   ```
 ## Install
   ### User installation
-  ```
+  ```sh
   make install INSTALLATION_PATH=$HOME/.local/bin
   ```
   Make sure `$HOME/.local/bin` is path of PATH env variable.
@@ -23,6 +23,15 @@
   [[ ":$PATH:" == *":$HOME/.local/bin:"* ]] || export PATH="$PATH:$HOME/.local/bin"
   ```
   ### System installation
+  ```sh
+  sudo make install INSTALLATION_PATH=/usr/local/bin
+  ```
+## Uninstall
+  From user:
+  ```sh
+  make install INSTALLATION_PATH=$HOME/.local/bin
+  ```
+  From system:
   ```sh
   sudo make install INSTALLATION_PATH=/usr/local/bin
   ```

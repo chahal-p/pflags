@@ -29,11 +29,11 @@
 ## Uninstall
   From user:
   ```sh
-  make install INSTALLATION_PATH=$HOME/.local/bin
+  make uninstall INSTALLATION_PATH=$HOME/.local/bin
   ```
   From system:
   ```sh
-  sudo make install INSTALLATION_PATH=/usr/local/bin
+  sudo make uninstall INSTALLATION_PATH=/usr/local/bin
   ```
 
 ## Usage

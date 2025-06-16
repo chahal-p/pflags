@@ -1,15 +1,14 @@
 # pflags
 
 ## Build and install
-  #### Clone the repo
-  ```
-  git clone https://github.com/chahal-p/pflags.git
-  ```
-  #### Build binary
-  ```
+  ```sh
+  git clone https://github.com/chahal-p/pflags.git /tmp/pflags
+  git pull
   make build
-  ```
-  #### Install
-  ```
   sudo make install
+  ```
+
+## Usage
+  ```sh
+  pflags --help
   ```

@@ -9,7 +9,7 @@
   
   ```
 ## Install
-  ### User installation
+  #### User installation
   ```sh
   make install INSTALLATION_PATH=$HOME/.local/bin
   ```
@@ -22,7 +22,7 @@
   ```sh
   [[ ":$PATH:" == *":$HOME/.local/bin:"* ]] || export PATH="$PATH:$HOME/.local/bin"
   ```
-  ### System installation
+  #### System installation
   ```sh
   sudo make install INSTALLATION_PATH=/usr/local/bin
   ```

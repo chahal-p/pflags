@@ -2,10 +2,12 @@
 
 ## Build and install
   ```sh
+  rm -f -r /tmp/pflags
   git clone https://github.com/chahal-p/pflags.git /tmp/pflags
-  git pull
+  cd /tmp/pflags
   make build
   sudo make install
+  cd -
   ```
 
 ## Usage

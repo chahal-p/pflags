@@ -227,14 +227,18 @@ func main() {
 			errorExit(errors.INTERNAL_ERROR.Code(), fmt.Sprintf("INTERNAL_ERROR(Something went wrong): %v\n", r))
 		}
 	}()
+	if len(os.Args) < 2 {
+		errorExit(errors.INVALID_USAGE.Code(), "No subcommand or flag provided.")
+	}
+
 	if hasHelpFlag(os.Args[1:2]) {
 		outputUsageHelp(rootHelp)
 	}
-	subCmd := os.Args[1]
-	args := os.Args[2:]
 
+	subCmd := os.Args[1]
 	switch subCmd {
 	case "parse":
+		args := os.Args[2:]
 		splittedArgs := splitArgs(args, "----")
 		internalArgs := splittedArgs[0]
 		flagArgs := make([]string, 0)
@@ -247,8 +251,10 @@ func main() {
 		}
 		parseSubCommand(internalArgs, flagArgs, externalArgs)
 	case "get":
+		args := os.Args[2:]
 		getSubCommand(args)
 	case "unparsed":
+		args := os.Args[2:]
 		unparsedSubCommand(args)
 	default:
 		errorExit(errors.INVALID_USAGE.Code(), fmt.Sprintf("Unrecognized subcommand: %s", subCmd))

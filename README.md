@@ -9,7 +9,7 @@
   ```
   make build
   ```
-  #### Build binary
+  #### Install
   ```
-  sudo cp ./out/pflags /usr/local/bin/
+  sudo make install
   ```

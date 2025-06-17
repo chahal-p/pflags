@@ -64,7 +64,8 @@ pflags parse:
 
   Example:
     pflags parse --usage "Testing foo" \
-      ---- --short "a" --long "abc" --type string --required --allowed foo --allowed bar -- --short "f" --long "fgh" --type number --default 123 \
+      ---- --short "a" --long "abc" --type string --required --allowed foo --allowed bar \
+        -- --short "f" --long "fgh" --type number --default 123 \
       ---- "$@"
 
   Section 1 Flags:

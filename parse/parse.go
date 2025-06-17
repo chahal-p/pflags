@@ -61,17 +61,19 @@ func Parse(flagDef []*flagdef.FlagDef, cmdArgs []string, allowUnrecognizedFlags 
 	var err *errors.Error = nil
 	remaining := slices.Clone(cmdArgs)
 	for id, flag := range flagDef {
-		if flag.ShortName() != "" {
-			result.FlagsNameToID[flag.ShortName()] = id
-		}
-		if flag.LongName() != "" {
-			result.FlagsNameToID[flag.LongName()] = id
-		}
 		flagVals, remaining, err = flagValue(flag, remaining)
 		if err != nil {
 			return nil, err
 		}
-		result.FlagValuesForID[id] = flagVals
+		if len(flagVals) > 0 {
+			if flag.ShortName() != "" {
+				result.FlagsNameToID[flag.ShortName()] = id
+			}
+			if flag.LongName() != "" {
+				result.FlagsNameToID[flag.LongName()] = id
+			}
+			result.FlagValuesForID[id] = flagVals
+		}
 	}
 	if !allowUnrecognizedFlags {
 		for _, arg := range remaining {

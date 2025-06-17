@@ -154,8 +154,20 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 		if len(desc) > 0 {
 			opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))
 		}
-		opts = append(opts, flagdef.DefaultValues(flagGet(flagsPflags, "default")...))
-		opts = append(opts, flagdef.AllowedValues(flagGet(flagsPflags, "allowed")...))
+		defaults, err := flagsPflags.Get("default")
+		if err != nil {
+			if err.Code() != errors.NOT_FOUND {
+				errorExitFromError(err)
+			}
+		}
+		opts = append(opts, flagdef.DefaultValues(defaults...))
+		allowed, err := flagsPflags.Get("allowed")
+		if err != nil {
+			if err.Code() != errors.NOT_FOUND {
+				errorExitFromError(err)
+			}
+		}
+		opts = append(opts, flagdef.AllowedValues(allowed...))
 		opts = append(opts, flagdef.StringRegex(flagGet(flagsPflags, "regex")[0]))
 		if flagGet(flagsPflags, "required")[0] == "true" {
 			opts = append(opts, flagdef.Required(true))

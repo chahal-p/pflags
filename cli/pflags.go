@@ -58,19 +58,22 @@ pflags parse:
   Parses the args as per given flag definitions and outputs the base64 of parsed results.
   Parsed results can be used for 'pflags get' or 'pflags unparsed' commands.
 
-  pflags parse <FLAGS 1> ---- <FLAGS 2> -- <FLAGS 2> -- <and more...> ---- <Args to be parsed>
+  Parse command has 3 sections sepeated by ---- (four hyphens)
+
+  pflags parse <Section 1> ---- <Section 2 (flag 1)> -- Section 2(flag 1) -- <and more...> ---- <arguments to be parsed>
 
   Example:
-    pflags parse --description "Testing foo" ---- \
-        --short "a" --long "abc" --type string --required --allowed foo --allowed bar -- \
-        --short "f" --long "fgh" --type number --default 123 -- \
-        <and more flags...> ---- "$@"
+    pflags parse --usage "Testing foo" \
+      ---- --short "a" --long "abc" --type string --required --allowed foo --allowed bar -- --short "f" --long "fgh" --type number --default 123 \
+      ---- "$@"
 
-  FLAGS 1:
-    {FLAGS}
+  Section 1 Flags:
+    In this section flags internal to parse command can be passed.
+      {FLAGS}
 
-  FLAGS 2:
-    {FLAGS}
+  Section 2 Flags:
+    Array of flags separated by -- (double hyphen)
+      {FLAGS}
 `, "\n")
 
 var getDesc = strings.Trim(`
@@ -110,7 +113,7 @@ func flagGet(f *pflags.Pflags, name string) []string {
 
 func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
-	errorExitFromError(internalPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flags details")))
+	errorExitFromError(internalPflags.Add("u", "usage", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flag descriptions.")))
 	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.DefaultValues("error"), flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'\n  Default is error.")))
 	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage help")))
 
@@ -118,7 +121,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	errorExitFromError(flagsPflags.Add("s", "short", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Short name for flag.")))
 	errorExitFromError(flagsPflags.Add("l", "long", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Long name for flag.")))
 	errorExitFromError(flagsPflags.Add("t", "type", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Type of flag.\n  Allowed values: string, number, bool"), flagdef.AllowedValues("string", "number", "bool")))
-	errorExitFromError(flagsPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Description of the flag.")))
+	errorExitFromError(flagsPflags.Add("d", "description", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Description of the flag.")))
 	errorExitFromError(flagsPflags.Add("r", "required", flagdef.BOOL_FLAG, flagdef.DefaultValues("false"), flagdef.Description("If a flag is required")))
 	errorExitFromError(flagsPflags.Add("", "default", flagdef.STRING_FLAG, flagdef.Description("Default values\n  (Can be specified multiple times).")))
 	errorExitFromError(flagsPflags.Add("a", "allowed", flagdef.STRING_FLAG, flagdef.Description("Allowed Values\n  (Can be specified multiple times).")))
@@ -137,7 +140,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 		opts = append(opts, pflags.AllowUnrecognizedFlags())
 	}
 
-	externalPflags := pflags.New(flagGet(internalPflags, "description")[0], opts...)
+	externalPflags := pflags.New(flagGet(internalPflags, "usage")[0], opts...)
 	for _, args := range splitArgs(flagArgs, "--") {
 		if err := flagsPflags.Parse(args); err != nil {
 			errorExitFromError(err)
@@ -147,7 +150,10 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 			errorExitFromError(err)
 		}
 		var opts []flagdef.Option
-		opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))
+		desc := flagGet(flagsPflags, "description")
+		if len(desc) > 0 {
+			opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))
+		}
 		opts = append(opts, flagdef.DefaultValues(flagGet(flagsPflags, "default")...))
 		opts = append(opts, flagdef.AllowedValues(flagGet(flagsPflags, "allowed")...))
 		opts = append(opts, flagdef.StringRegex(flagGet(flagsPflags, "regex")[0]))

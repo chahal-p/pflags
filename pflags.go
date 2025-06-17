@@ -28,16 +28,16 @@ func AllowUnrecognizedFlags() Option {
 }
 
 type Pflags struct {
-	desc                   string
+	usage                  string
 	allowUnrecognizedFlags bool
 	flags                  []*flagdef.FlagDef
 	result                 *parse.Result
 	parsedBytes            []byte
 }
 
-func New(desc string, opts ...Option) *Pflags {
+func New(usage string, opts ...Option) *Pflags {
 	obj := &Pflags{
-		desc: desc,
+		usage: usage,
 	}
 	for _, opt := range opts {
 		opt(obj)
@@ -46,19 +46,22 @@ func New(desc string, opts ...Option) *Pflags {
 }
 
 func (o *Pflags) UsageHelp() string {
-	if !strings.Contains(o.desc, "{FLAGS}") {
-		return o.desc
+	if !strings.Contains(o.usage, "{FLAGS}") {
+		return o.usage
 	}
 
 	flagContent := ""
 
 	maxShortName := float64(0)
 	maxLongName := float64(0)
+	maxTypeName := float64(0)
 	for _, f := range o.flags {
 		maxShortName = math.Max(maxShortName, float64(len(f.ShortName())+1))
 		maxLongName = math.Max(maxLongName, float64(len(f.LongName())+2))
+		maxTypeName = math.Max(maxTypeName, float64(len(f.Type())))
 	}
-	flagContentFormat := "%" + strconv.Itoa(int(maxShortName)) + "s%s  %" + strconv.Itoa(int(maxLongName)) + "s    %s    "
+
+	flagContentFormat := "%" + strconv.Itoa(int(maxShortName)) + "s%s  %" + strconv.Itoa(int(maxLongName)) + "s  %" + strconv.Itoa(int(maxTypeName)) + "s  %s    "
 	for _, f := range o.flags {
 		sn := ""
 		ln := ""
@@ -76,19 +79,22 @@ func (o *Pflags) UsageHelp() string {
 		if f.Required() {
 			ro = "required"
 		}
-		line := fmt.Sprintf(flagContentFormat, sn, sep, ln, ro)
+		line := fmt.Sprintf(flagContentFormat, sn, sep, ln, f.Type(), ro)
 		flagContent += line + indent(f.Description(), len(line)) + "\n"
 	}
 	indentSize := 0
-	for l := range strings.SplitSeq(o.desc, "\n") {
-		indx := strings.Index(l, "{FLAGS}")
-		if indx != -1 {
-			indentSize = indx
-			break
+	for l1 := range strings.SplitSeq(o.usage, "\n") {
+		for l2 := range strings.SplitSeq(l1, "\\n") {
+			indx := strings.Index(l2, "{FLAGS}")
+			if indx != -1 {
+				indentSize = indx
+				break
+			}
 		}
+
 	}
 	flagContent = indent(flagContent, indentSize)
-	usageHelp := strings.Replace(o.desc, "{FLAGS}", flagContent, 1)
+	usageHelp := strings.Replace(o.usage, "{FLAGS}", flagContent, 1)
 	usageHelp = strings.Join(strings.Split(usageHelp, DoubleEscapedFlagHelpIdentifier), tmpEscapedFlagHelpIdentifier)
 	usageHelp = strings.Join(strings.Split(usageHelp, EscapedFlagHelpIdentifier), FlagHelpIdentifier)
 	usageHelp = strings.Join(strings.Split(usageHelp, tmpEscapedFlagHelpIdentifier), EscapedFlagHelpIdentifier)

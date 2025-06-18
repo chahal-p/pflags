@@ -21,12 +21,12 @@ func NewCode(code int, name string) Code {
 }
 
 var (
-	ERROR                = NewCode(2, "ERROR")
+	ERROR                = NewCode(1, "ERROR")
 	INVALID_USAGE        = NewCode(2, "INVALID_USAGE")
 	INVAID_VALUE         = NewCode(4, "INVAID_VALUE")
-	NOT_FOUND            = NewCode(20, "NOT_FOUND")
-	USAGE_HELP_REQUESTED = NewCode(30, "USAGE_HELP_REQUESTED")
-	INTERNAL_ERROR       = NewCode(40, "INTERNAL_ERROR")
+	NOT_FOUND            = NewCode(40, "NOT_FOUND")
+	INTERNAL_ERROR       = NewCode(99, "INTERNAL_ERROR")
+	USAGE_HELP_REQUESTED = NewCode(100, "USAGE_HELP_REQUESTED")
 )
 
 type Error struct {

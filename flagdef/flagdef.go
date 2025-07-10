@@ -61,6 +61,7 @@ func New(shortName string, longName string, flagType FlagType, opts ...Option) (
 	if shortName == "" && longName == "" {
 		return nil, errors.NewError(errors.INVALID_USAGE, "At least one of short or long flag name is required.")
 	}
+
 	flag := &FlagDef{
 		shortName: shortName,
 		longName:  longName,
@@ -73,14 +74,33 @@ func New(shortName string, longName string, flagType FlagType, opts ...Option) (
 		}
 	}
 
+	if flag.required && len(flag.defaultVals) > 0 {
+		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: A required field can not have default values.", flag.Name()))
+	}
+
 	if len(flag.allowedVals) > 0 && (slices.Contains([]FlagType{BOOL_FLAG}, flag.flagType)) {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("Allowed values can not be provided for type %s", flag.flagType))
+		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: Allowed values can not be provided for type %s", flag.Name(), flag.flagType))
 	}
 
 	if flag.strRegex != nil && (slices.Contains([]FlagType{BOOL_FLAG, NUMBER_FLAG}, flag.flagType)) {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("String regex can not be provided for type %s", flag.flagType))
+		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: String regex can not be provided for type %s", flag.Name(), flag.flagType))
 	}
 	return flag, nil
+}
+
+func (o *FlagDef) Name() string {
+	sn := fmt.Sprintf("-%s", o.shortName)
+	ln := fmt.Sprintf("--%s", o.longName)
+	if sn != "" && ln != "" {
+		return sn + "/" + ln
+	}
+	if sn != "" {
+		return sn
+	}
+	if ln != "" {
+		return ln
+	}
+	return ""
 }
 
 func (o *FlagDef) ShortName() string {

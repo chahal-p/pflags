@@ -93,10 +93,10 @@ func (o *FlagDef) Name() string {
 		return fmt.Sprintf("-%s/--%s", o.shortName, o.longName)
 	}
 	if o.shortName != "" {
-		return o.shortName
+		return "-" + o.shortName
 	}
 	if o.longName != "" {
-		return o.longName
+		return "--" + o.longName
 	}
 	return ""
 }

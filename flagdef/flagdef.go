@@ -89,16 +89,14 @@ func New(shortName string, longName string, flagType FlagType, opts ...Option) (
 }
 
 func (o *FlagDef) Name() string {
-	sn := fmt.Sprintf("-%s", o.shortName)
-	ln := fmt.Sprintf("--%s", o.longName)
-	if sn != "" && ln != "" {
-		return sn + "/" + ln
+	if o.shortName != "" && o.longName != "" {
+		return fmt.Sprintf("-%s/--%s", o.shortName, o.longName)
 	}
-	if sn != "" {
-		return sn
+	if o.shortName != "" {
+		return o.shortName
 	}
-	if ln != "" {
-		return ln
+	if o.longName != "" {
+		return o.longName
 	}
 	return ""
 }

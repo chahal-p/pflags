@@ -116,6 +116,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
 	errorExitFromError(internalPflags.Add("u", "usage", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flag descriptions.")))
 	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.DefaultValues("error"), flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'\n  Default is error.")))
+	errorExitFromError(internalPflags.Add("", "default-values-for-optional", flagdef.BOOL_FLAG, flagdef.DefaultValues("false"), flagdef.Description("Default value(s) required for optional flags.")))
 	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.DefaultValues(""), flagdef.Description("Output usage help")))
 
 	flagsPflags := pflags.New(internalPflags.UsageHelp())
@@ -151,7 +152,9 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 			errorExitFromError(err)
 		}
 		var opts []flagdef.Option
-		opts = append(opts, flagdef.DefaultRequiredForOptional())
+		if flagGet(internalPflags, "default-values-for-optional")[0] == "true" {
+			opts = append(opts, flagdef.DefaultValuesRequiredForOptional())
+		}
 		desc := flagGet(flagsPflags, "description")
 		if len(desc) > 0 {
 			opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))

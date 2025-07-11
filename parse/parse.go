@@ -131,14 +131,7 @@ func flagValue(flag *flagdef.FlagDef, cmdArgs []string) ([]string, []string, *er
 	}
 	if len(values) == 0 {
 		if flag.Required() {
-			msg := fmt.Sprintf("Required flag missing: -%s/--%s", flag.ShortName(), flag.LongName())
-			if flag.ShortName() == "" {
-				msg = fmt.Sprintf("Required flag missing: --%s", flag.LongName())
-			}
-			if flag.LongName() == "" {
-				msg = fmt.Sprintf("Required flag missing: -%s", flag.ShortName())
-			}
-			return nil, cmdArgs, errors.NewError(errors.INVALID_USAGE, msg)
+			return nil, cmdArgs, errors.NewError(errors.INVALID_USAGE, "Required flag missing: %s", flag.Name())
 		}
 		if len(flag.DefaultValues()) > 0 {
 			values = flag.DefaultValues()

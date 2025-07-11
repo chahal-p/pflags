@@ -116,7 +116,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 	internalPflags := pflags.New(parseDesc)
 	errorExitFromError(internalPflags.Add("u", "usage", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Provide desciption content for usage help\n  Specify \\{\\{\\FLAGS\\}\\} formatter to replace it with flag descriptions.")))
 	errorExitFromError(internalPflags.Add("", "unrecognized-flags", flagdef.STRING_FLAG, flagdef.DefaultValues("error"), flagdef.AllowedValues("allow", "error"), flagdef.Description("Unrecognized flags: accepted values 'allow' or 'error'\n  Default is error.")))
-	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage help")))
+	errorExitFromError(internalPflags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.DefaultValues(""), flagdef.Description("Output usage help")))
 
 	flagsPflags := pflags.New(internalPflags.UsageHelp())
 	errorExitFromError(flagsPflags.Add("s", "short", flagdef.STRING_FLAG, flagdef.DefaultValues(""), flagdef.Description("Short name for flag.")))
@@ -151,6 +151,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 			errorExitFromError(err)
 		}
 		var opts []flagdef.Option
+		opts = append(opts, flagdef.DefaultRequiredForOptional())
 		desc := flagGet(flagsPflags, "description")
 		if len(desc) > 0 {
 			opts = append(opts, flagdef.Description(flagGet(flagsPflags, "description")[0]))
@@ -187,7 +188,7 @@ func parseSubCommand(internalArgs, flagArgs, externalArgs []string) {
 func getSubCommand(args []string) {
 	flags := pflags.New(getDesc)
 	errorExitFromError(flags.Add("n", "name", flagdef.STRING_FLAG, flagdef.Required(true), flagdef.Description("Name of flag, any one of either short or long name can be provided.")))
-	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
+	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.DefaultValues(""), flagdef.Description("Output usage details.")))
 	if hasHelpFlag(args) {
 		outputUsageHelp(flags.UsageHelp())
 	}
@@ -216,7 +217,7 @@ func unparsedSubCommand(args []string) {
 		errorExit(errors.INVALID_USAGE.Code(), "No argument provided.")
 	}
 	flags := pflags.New(unparsedDesc)
-	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.Description("Output usage details.")))
+	errorExitFromError(flags.Add("h", "help", flagdef.BOOL_FLAG, flagdef.DefaultValues(""), flagdef.Description("Output usage details.")))
 	if hasHelpFlag(args) {
 		outputUsageHelp(flags.UsageHelp())
 	}

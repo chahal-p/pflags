@@ -45,14 +45,15 @@ func TypeFromString(t string) (FlagType, *errors.Error) {
 }
 
 type FlagDef struct {
-	shortName   string
-	longName    string
-	desc        string
-	flagType    FlagType
-	required    bool
-	defaultVals []string
-	allowedVals []string
-	strRegex    *regexp.Regexp
+	shortName                  string
+	longName                   string
+	desc                       string
+	flagType                   FlagType
+	required                   bool
+	defaultVals                []string
+	allowedVals                []string
+	strRegex                   *regexp.Regexp
+	defaultRequiredForOptional bool
 }
 
 func New(shortName string, longName string, flagType FlagType, opts ...Option) (*FlagDef, *errors.Error) {
@@ -75,28 +76,34 @@ func New(shortName string, longName string, flagType FlagType, opts ...Option) (
 	}
 
 	if flag.required && len(flag.defaultVals) > 0 {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: A required field can not have default values.", flag.Name()))
+		return nil, errors.NewError(errors.INVALID_USAGE, "%s: A required flag can not have default values.", flag.Name())
+	}
+
+	if flag.defaultRequiredForOptional && !flag.required && len(flag.defaultVals) == 0 {
+		return nil, errors.NewError(errors.INVALID_USAGE, "%s: An optional flag should have default value(s) provided.", flag.Name())
 	}
 
 	if len(flag.allowedVals) > 0 && (slices.Contains([]FlagType{BOOL_FLAG}, flag.flagType)) {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: Allowed values can not be provided for type %s", flag.Name(), flag.flagType))
+		return nil, errors.NewError(errors.INVALID_USAGE, "%s: Allowed values can not be provided for type %s", flag.Name(), flag.flagType)
 	}
 
 	if flag.strRegex != nil && (slices.Contains([]FlagType{BOOL_FLAG, NUMBER_FLAG}, flag.flagType)) {
-		return nil, errors.NewError(errors.INVALID_USAGE, fmt.Sprintf("%s: String regex can not be provided for type %s", flag.Name(), flag.flagType))
+		return nil, errors.NewError(errors.INVALID_USAGE, "%s: String regex can not be provided for type %s", flag.Name(), flag.flagType)
 	}
 	return flag, nil
 }
 
 func (o *FlagDef) Name() string {
+	sn := "-" + o.shortName
+	ln := "--" + o.longName
 	if o.shortName != "" && o.longName != "" {
-		return fmt.Sprintf("-%s/--%s", o.shortName, o.longName)
+		return fmt.Sprintf("%s/%s", sn, ln)
 	}
 	if o.shortName != "" {
-		return "-" + o.shortName
+		return sn
 	}
 	if o.longName != "" {
-		return "--" + o.longName
+		return ln
 	}
 	return ""
 }
@@ -168,6 +175,13 @@ func DefaultValues(vals ...string) Option {
 func Required(required bool) Option {
 	return func(fc *FlagDef) *errors.Error {
 		fc.required = required
+		return nil
+	}
+}
+
+func DefaultRequiredForOptional() Option {
+	return func(fc *FlagDef) *errors.Error {
+		fc.defaultRequiredForOptional = true
 		return nil
 	}
 }

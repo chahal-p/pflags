@@ -34,7 +34,12 @@ type Error struct {
 	msg  string
 }
 
-func NewError(code Code, msg string) *Error {
+func NewError(code Code, msgFormat string, a ...any) *Error {
+	msg := msgFormat
+	if len(a) > 0 {
+		msg = fmt.Sprintf(msg, a...)
+	}
+
 	return &Error{
 		code: code,
 		msg:  msg,

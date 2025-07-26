@@ -1,4 +1,4 @@
-module github.com/chahal-p/pflags/cli
+module github.com/chahal-p/pflags/cli/pflags
 
 go 1.24.3
 

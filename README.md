@@ -1,5 +1,9 @@
-# pflags
+# Single command installation
+```sh
+curl -sL http://raw.githubusercontent.com/chahal-p/pflags/refs/heads/main/install.sh | bash -s -- --installation-path=$HOME/.local/bin
+```
 
+# Build source code and install
 ## Build
   ```sh
   rm -f -r /tmp/pflags

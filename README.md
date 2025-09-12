@@ -1,7 +1,12 @@
 # Single command installation
-```sh
-curl -sL http://raw.githubusercontent.com/chahal-p/pflags/refs/heads/main/install.sh | bash -s -- --installation-path=$HOME/.local/bin
-```
+  #### User installation
+  ```sh
+  curl -sL http://raw.githubusercontent.com/chahal-p/pflags/refs/heads/main/install.sh | bash -s -- --installation-path=$HOME/.local/bin
+  ```
+  #### System installation
+  ```sh
+  curl -sL http://raw.githubusercontent.com/chahal-p/pflags/refs/heads/main/install.sh | bash -s -- --sudo --installation-path=/usr/bin
+  ```
 
 # Build source code and install
 ## Build

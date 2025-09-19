@@ -227,12 +227,14 @@ def exec(external_args, flags_def_parser):
   if PARSED_ARGS.__subcommand__ == 'printhelp':
     printhelp_cmd()
 
-def write_stdout(data: str, end='\n'):
+def write_stdout(data, end='\n'):
+  data = str(data)
   if end:
     data = data + end
   sys.stdout.write(data)
 
-def write_stderr(data: str, end='\n'):
+def write_stderr(data, end='\n'):
+  data = str(data)
   if end:
     data = data + end
   sys.stderr.write(data)

@@ -1,0 +1,249 @@
+#!/usr/bin/env python3
+
+from argparse import ArgumentParser, _SubParsersAction, RawTextHelpFormatter, ArgumentTypeError, ArgumentError
+from typing import Union
+
+import ast
+import base64
+import json
+import re
+import sys
+
+PROG = None
+
+PARSED_ARGS = None
+
+PARSE_COMMAND_USAGE = '''\
+%s parse [--description ] [-h] ---- <Defind flags options> -- <Defind flags options> -- ... ---- <To be parsed args>'''
+
+PARSE_COMMAND_DESC = '''\
+Parses the args and output base64 of parsed args
+
+Note: <Defind flags options> are separated by hypen(--)'''
+
+GET_COMMAND_DESC = '''\
+Get value(s) of a specific flag from parsed results.'''
+
+GET_COMMAND_EPILOG = '''\
+Multiple values output can be converted to array by following command\n  readarray -t x <<< $(pflags get --name abc "$parsedData")'''
+
+UNPARSED_COMMAND_USAGE = '''\
+%s unparsed "$parsedData"'''
+
+UNPARSED_COMMAND_DESC = '''\
+Get non flag args.'''
+
+UNPARSED_COMMAND_EPILOG = '''\
+Multiple values output can be converted to array by following command
+  readarray -t x <<< $(pflags unparsed "$parsedData")'''
+
+PRINTHELP_COMMAND_DESC = '''\
+Prints the help if requested with eith -h or --help flags.
+'''
+
+def add_parse_subparser(sub_parsers: _SubParsersAction):
+  flags_def_parser = ArgumentParser(usage='', description='', add_help=False, formatter_class=RawTextHelpFormatter)
+  flags_def_parser.add_argument('-s', '--short', metavar='', help='Short name for flag')
+  flags_def_parser.add_argument('-l', '--long', metavar='', help='Long name for flag')
+  allowed_values = ['string', 'number', 'bool']
+  flags_def_parser.add_argument('-t', '--type', metavar='', required=True, help=f'Type of flag. (required)\n  Allowed values: {', '.join(allowed_values)}', choices=allowed_values)
+  flags_def_parser.add_argument('-h', '--help', metavar='', help='Help of the flag')
+  flags_def_parser.add_argument('-r', '--required', action='store_true', help='If a flag is required')
+  flags_def_parser.add_argument('--default', metavar='', type=str, action='append', help='Default values\n  (Can be specified multiple times)')
+  flags_def_parser.add_argument('-a', '--allowed', metavar='', type=str, action='append', help='Allowed Values\n  (Can be specified multiple times)')
+  flags_def_parser.add_argument('--regex', metavar='', help='Regex for string validatin\n  (Only applicable to --type=string)')
+  parser: ArgumentParser = sub_parsers.add_parser(usage='', name='parse', description=PARSE_COMMAND_DESC, add_help=False, formatter_class=RawTextHelpFormatter)
+  parser.add_argument('--description', metavar='', type=str, default=None, help='Desciption of command')
+  parser.add_argument('-h', '--help', action='store_true', help="show this help message and exit")
+  return parser, flags_def_parser
+
+def add_get_subparser(sub_parsers: _SubParsersAction):
+  parser: ArgumentParser = sub_parsers.add_parser(name='get', description=GET_COMMAND_DESC, epilog=GET_COMMAND_EPILOG, formatter_class=RawTextHelpFormatter)
+  parser.add_argument('-n', '--name', metavar='', required=True, help='Name of flag, any one of either short or long name can be provided.')
+  parser.add_argument('$parsedData', type=str)
+  return parser
+
+def add_unparsed_subparser(sub_parsers: _SubParsersAction):
+  parser: ArgumentParser = sub_parsers.add_parser(name='unparsed', description=UNPARSED_COMMAND_DESC, epilog=UNPARSED_COMMAND_EPILOG, formatter_class=RawTextHelpFormatter)
+  parser.add_argument('$parsedData', type=str)
+  return parser
+
+def add_printhelp_subparser(sub_parsers: _SubParsersAction):
+  parser: ArgumentParser = sub_parsers.add_parser(name='printhelp', description=PRINTHELP_COMMAND_DESC, formatter_class=RawTextHelpFormatter)
+  parser.add_argument('$parsedData', type=str)
+  return parser
+
+def split_list_by_first_occurrence(args: list, delimiter: str, n:int = None) -> list[list]:
+  if n is not None and n < 1:
+    raise ValueError('Invalid n, it should be greater than 0')
+  res = []
+  buf = []
+  for arg in args:
+    if (n is None or len(res) < n) and arg == delimiter:
+      res.append(buf)
+      buf = []
+      continue
+    buf.append(arg)
+  res.append(buf)
+  if n is None or len(res) == n + 1:
+    return res
+  return res + [[]] * (n + 1 - len(res))
+
+def print_parse_help(parse_parser: ArgumentParser, flags_def_parser: ArgumentParser):
+  parse_help = parse_parser.format_help().lstrip('usage:').strip(' ').strip('\n')
+  flags_def_help = 'Flags defining options:' + flags_def_parser.format_help().lstrip('usage:').strip(' ').strip('\n').strip('options:')
+  help = '{}\n\n{}\n\n{}\n'.format(PARSE_COMMAND_USAGE % PROG, parse_help, flags_def_help)
+  sys.stdout.write(help)
+
+def validate_flag_values(FLAGS_DEF):
+  def string_type(val):
+    if FLAGS_DEF.allowed and val not in FLAGS_DEF.allowed:
+      raise ArgumentTypeError(f'{val} is not in allowed values: {FLAGS_DEF.allowed}')
+    if FLAGS_DEF.regex:
+      regx = re.compile(FLAGS_DEF.regex)
+      if not regx.match(val):
+        raise ArgumentTypeError(f'{val} is not matching regex: {FLAGS_DEF.regex}')
+    return val
+
+  def number_type(val):
+    try:
+      return int(val)
+    except ValueError:
+      try:
+        return float(val)
+      except ValueError:
+        raise ArgumentTypeError("Expecting number")
+
+  def bool_type(val):
+    if val not in ['true', 'false']:
+      raise ArgumentTypeError("Expecting true or false")
+    return bool(val)
+
+  if FLAGS_DEF.type == 'string':
+    return string_type
+  if FLAGS_DEF.type == 'number':
+    return number_type
+  if FLAGS_DEF.type == 'bool':
+    return bool_type
+
+def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
+  external_cmd_name = PARSED_ARGS.__cmd_name__ if PARSED_ARGS.__cmd_name__ else PROG
+  flags_def_args_raw, to_be_parsed = split_list_by_first_occurrence(external_args, '----', n=1)
+  flags_def_args = split_list_by_first_occurrence(flags_def_args_raw, delimiter='--')
+  to_be_parsed_parser = ArgumentParser(prog=PARSED_ARGS.__cmd_name__, description=PARSED_ARGS.description, formatter_class=RawTextHelpFormatter, add_help=False)
+  defaults = {}
+  flag_ids_map = {}
+  for fda in flags_def_args:
+    FLAGS_DEF = flags_def_parser.parse_args(fda)
+    flag_id = FLAGS_DEF.long if FLAGS_DEF.long else FLAGS_DEF.short
+    flag_names = []
+    if FLAGS_DEF.short:
+      flag_names.append(f'-{FLAGS_DEF.short}')
+      flag_ids_map[FLAGS_DEF.short] = flag_id
+    if FLAGS_DEF.long:
+      flag_names.append(f'--{FLAGS_DEF.long}')
+      flag_ids_map[FLAGS_DEF.long] = flag_id
+    flag_help: str = FLAGS_DEF.help
+    if flag_help:
+      try:
+        flag_help = ast.literal_eval('"%s"' % flag_help)
+      except SyntaxError:
+        flag_help = ast.literal_eval("'%s'" % flag_help)
+    if FLAGS_DEF.type == 'bool':
+      to_be_parsed_parser.add_argument(*flag_names, action='store_true', help=flag_help, default=False)
+    else:
+      to_be_parsed_parser.add_argument(*flag_names, type=validate_flag_values(FLAGS_DEF), metavar='', action='append', required=FLAGS_DEF.required, help=flag_help, default=None)
+    # Storing defaults
+    if FLAGS_DEF.default and flag_id:
+      defaults[flag_id] = FLAGS_DEF.default
+  help_flag_overriden = True
+  try:
+    to_be_parsed_parser.add_argument('-h', '--help', action='store_true', help="show this help message and exit")
+    help_flag_overriden = False
+  except ArgumentError:
+    pass
+  EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
+  unrecognized = []
+  for u in unparsed:
+    if u.startswith('-'):
+      unrecognized.append(u)
+  if unrecognized:
+    sys.stderr.write(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}\n')
+    return
+  # Setting defaults if arg is not provided.
+  for k in defaults:
+    if EXTERNAL_FLAGS.__dict__[k] is None:
+      EXTERNAL_FLAGS.__dict__[k] = defaults[k]
+
+  parsedDataDict = {'__cmd_name__': external_cmd_name, 'nonFlagArgs': unparsed}
+
+  parsedDataDict['flagValuesForID'] = EXTERNAL_FLAGS.__dict__
+  parsedDataDict['flagsIDForName'] = flag_ids_map
+  parsedDataDict['help'] = None
+  if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
+    parsedDataDict['help'] = to_be_parsed_parser.format_help()
+  parsedData = json.dumps(parsedDataDict)
+  sys.stdout.write(base64.b64encode(parsedData.encode()).decode())
+
+def get_cmd():
+  parsedData = PARSED_ARGS.__dict__['$parsedData']
+  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
+  if PARSED_ARGS.name not in parsedDataDict['flagsIDForName']:
+    exit(1)
+  values = parsedDataDict['flagValuesForID'][parsedDataDict['flagsIDForName'][PARSED_ARGS.name]]
+  if not isinstance(values, list):
+    values = [values,]
+  for v in values:
+    if v is True:
+      sys.stdout.write(f'true\n')
+    elif v is False:
+      sys.stdout.write(f'false\n')
+    else:
+      sys.stdout.write(f'{v}\n')
+
+def unparsed_cmd():
+  parsedData = PARSED_ARGS.__dict__['$parsedData']
+  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
+  unparsed = parsedDataDict['nonFlagArgs']
+  for x in unparsed:
+    sys.stdout.write(f'{x}\n')
+
+def printhelp_cmd():
+  parsedData = PARSED_ARGS.__dict__['$parsedData']
+  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
+  help = parsedDataDict['help']
+  if help:
+    sys.stdout.write(help)
+    return
+  exit(1)
+
+def exec(external_args, flags_def_parser):
+  if PARSED_ARGS.__subcommand__ == 'parse':
+    parse_cmd(external_args, flags_def_parser)
+  if PARSED_ARGS.__subcommand__ == 'get':
+    get_cmd()
+  if PARSED_ARGS.__subcommand__ == 'unparsed':
+    unparsed_cmd()
+  if PARSED_ARGS.__subcommand__ == 'printhelp':
+    printhelp_cmd()
+
+def main():
+  global PARSED_ARGS, PROG
+  all_args = sys.argv[1:]
+  internal_args, external_args = split_list_by_first_occurrence(all_args, '----', n=1)
+  root_parser = ArgumentParser(description='A tool to parse and extract flags from command line arguments', formatter_class=RawTextHelpFormatter)
+  root_parser.add_argument('--name', dest='__cmd_name__', metavar='', type=str)
+  PROG = root_parser.prog
+  sub_parsers = root_parser.add_subparsers(dest='__subcommand__')
+  parse_parser, flags_def_parser = add_parse_subparser(sub_parsers)
+  add_get_subparser(sub_parsers)
+  add_unparsed_subparser(sub_parsers)
+  add_printhelp_subparser(sub_parsers)
+  PARSED_ARGS = root_parser.parse_args(internal_args)
+  if PARSED_ARGS.__subcommand__ == 'parse' and PARSED_ARGS.help:
+    print_parse_help(parse_parser, flags_def_parser)
+    return
+  exec(external_args, flags_def_parser)
+
+if __name__ == '__main__':
+  main()

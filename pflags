@@ -93,7 +93,7 @@ def print_parse_help(parse_parser: ArgumentParser, flags_def_parser: ArgumentPar
   parse_help = parse_parser.format_help().lstrip('usage:').strip(' ').strip('\n')
   flags_def_help = 'Flags defining options:' + flags_def_parser.format_help().lstrip('usage:').strip(' ').strip('\n').strip('options:')
   help = '{}\n\n{}\n\n{}\n'.format(PARSE_COMMAND_USAGE % PROG, parse_help, flags_def_help)
-  sys.stdout.write(help)
+  write_stdout(help, end=None)
 
 def validate_flag_values(FLAGS_DEF):
   def string_type(val):
@@ -168,7 +168,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
     if u.startswith('-'):
       unrecognized.append(u)
   if unrecognized:
-    sys.stderr.write(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}\n')
+    write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}')
     return
   # Setting defaults if arg is not provided.
   for k in defaults:
@@ -183,7 +183,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
     parsedDataDict['help'] = to_be_parsed_parser.format_help()
   parsedData = json.dumps(parsedDataDict)
-  sys.stdout.write(base64.b64encode(parsedData.encode()).decode())
+  write_stdout(base64.b64encode(parsedData.encode()).decode(), end=None)
 
 def get_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']
@@ -195,25 +195,25 @@ def get_cmd():
     values = [values,]
   for v in values:
     if v is True:
-      sys.stdout.write(f'true\n')
+      write_stdout('true')
     elif v is False:
-      sys.stdout.write(f'false\n')
+      write_stdout('false')
     else:
-      sys.stdout.write(f'{v}\n')
+      write_stdout(v)
 
 def unparsed_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']
   parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
   unparsed = parsedDataDict['nonFlagArgs']
   for x in unparsed:
-    sys.stdout.write(f'{x}\n')
+    write_stdout(x)
 
 def printhelp_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']
   parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
   help = parsedDataDict['help']
   if help:
-    sys.stdout.write(help)
+    write_stdout(help, end=None)
     return
   exit(1)
 
@@ -227,6 +227,16 @@ def exec(external_args, flags_def_parser):
   if PARSED_ARGS.__subcommand__ == 'printhelp':
     printhelp_cmd()
 
+def write_stdout(data: str, end='\n'):
+  if end:
+    data = data + end
+  sys.stdout.write(data)
+
+def write_stderr(data: str, end='\n'):
+  if end:
+    data = data + end
+  sys.stderr.write(data)
+
 def main():
   global PARSED_ARGS, PROG
   all_args = sys.argv[1:]
@@ -234,6 +244,9 @@ def main():
   root_parser = ArgumentParser(description='A tool to parse and extract flags from command line arguments', formatter_class=RawTextHelpFormatter)
   root_parser.add_argument('--name', dest='__cmd_name__', metavar='', type=str)
   PROG = root_parser.prog
+  if len(all_args) == 0:
+    write_stderr('No args provided.')
+    exit(1)
   sub_parsers = root_parser.add_subparsers(dest='__subcommand__')
   parse_parser, flags_def_parser = add_parse_subparser(sub_parsers)
   add_get_subparser(sub_parsers)

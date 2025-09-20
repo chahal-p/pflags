@@ -202,20 +202,20 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
   parsedData = json.dumps(parsedDataDict)
   write_stdout(base64.b64encode(parsedData.encode()).decode(), end=None)
 
-def gen_completion_code(cmd_name: str, parser: ArgumentParser):
-  argcomplete.autocomplete(parser)
-  comp_dir = '%s/.pflagscomp' % os.path.expanduser('~')
-  if not os.path.exists(comp_dir):
-    os.mkdir(comp_dir)
-  for sh in ['bash', 'zsh']:
-    comp_file = '%s/%s.%s' % (comp_dir, cmd_name, sh)
-    if os.path.exists(comp_file):
-      last_mod_timestamp = os.path.getmtime(comp_file)
-      last_mod_time = datetime.datetime.fromtimestamp(last_mod_timestamp, datetime.timezone.utc)
-      if datetime.datetime.now(datetime.timezone.utc) - last_mod_time < datetime.timedelta(minutes=1):
-        return
-    with open(comp_file, 'w+') as f:
-      f.write(argcomplete.shellcode([cmd_name,], shell=sh))
+# def gen_completion_code(cmd_name: str, parser: ArgumentParser):
+#   argcomplete.autocomplete(parser)
+#   comp_dir = '%s/.pflagscomp' % os.path.expanduser('~')
+#   if not os.path.exists(comp_dir):
+#     os.mkdir(comp_dir)
+#   for sh in ['bash', 'zsh']:
+#     comp_file = '%s/%s.%s' % (comp_dir, cmd_name, sh)
+#     if os.path.exists(comp_file):
+#       last_mod_timestamp = os.path.getmtime(comp_file)
+#       last_mod_time = datetime.datetime.fromtimestamp(last_mod_timestamp, datetime.timezone.utc)
+#       if datetime.datetime.now(datetime.timezone.utc) - last_mod_time < datetime.timedelta(minutes=1):
+#         return
+#     with open(comp_file, 'w+') as f:
+#       f.write(argcomplete.shellcode([cmd_name,], shell=sh))
 
 def get_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']

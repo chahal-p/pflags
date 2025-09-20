@@ -128,6 +128,13 @@ def validate_flag_values(FLAGS_DEF):
 
 def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
   external_cmd_name = PARSED_ARGS.__cmd_name__ if PARSED_ARGS.__cmd_name__ else PROG
+  parsedDataDict = {
+    '__cmd_name__': external_cmd_name,
+    'nonFlagArgs': [],
+    'flagValuesForID': {},
+    'flagsIDForName': {},
+    'help': None
+  }
   flags_def_args_raw, to_be_parsed = split_list_by_first_occurrence(external_args, '----', n=1)
   flags_def_args = split_list_by_first_occurrence(flags_def_args_raw, delimiter='--')
   to_be_parsed_parser = ArgumentParser(prog=PARSED_ARGS.__cmd_name__, description=PARSED_ARGS.description, formatter_class=RawTextHelpFormatter, add_help=False)
@@ -162,26 +169,23 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
     help_flag_overriden = False
   except ArgumentError:
     pass
-  EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
-  unrecognized = []
-  for u in unparsed:
-    if u.startswith('-'):
-      unrecognized.append(u)
-  if unrecognized:
-    write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}')
-    return
-  # Setting defaults if arg is not provided.
-  for k in defaults:
-    if EXTERNAL_FLAGS.__dict__[k] is None:
-      EXTERNAL_FLAGS.__dict__[k] = defaults[k]
-
-  parsedDataDict = {'__cmd_name__': external_cmd_name, 'nonFlagArgs': unparsed}
-
-  parsedDataDict['flagValuesForID'] = EXTERNAL_FLAGS.__dict__
-  parsedDataDict['flagsIDForName'] = flag_ids_map
-  parsedDataDict['help'] = None
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
     parsedDataDict['help'] = to_be_parsed_parser.format_help()
+  else:
+    EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
+    unrecognized = []
+    for u in unparsed:
+      if u.startswith('-'):
+        unrecognized.append(u)
+    if unrecognized:
+      write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}')
+      return
+    # Setting defaults if arg is not provided.
+    for k in defaults:
+      if EXTERNAL_FLAGS.__dict__[k] is None:
+        EXTERNAL_FLAGS.__dict__[k] = defaults[k]
+    parsedDataDict['flagValuesForID'] = EXTERNAL_FLAGS.__dict__
+    parsedDataDict['flagsIDForName'] = flag_ids_map
   parsedData = json.dumps(parsedDataDict)
   write_stdout(base64.b64encode(parsedData.encode()).decode(), end=None)
 

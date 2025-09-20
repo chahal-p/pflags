@@ -263,7 +263,7 @@ def main():
   all_args = sys.argv[1:]
   internal_args, external_args = split_list_by_first_occurrence(all_args, '----', n=1)
   root_parser = ArgumentParser(description='A tool to parse and extract flags from command line arguments', formatter_class=RawTextHelpFormatter)
-  root_parser.add_argument('--name', dest='__cmd_name__', metavar='', type=str)
+  root_parser.add_argument('--name', dest='__cmd_name__', metavar='', type=str, help='Name of parent command, it will be referenced in errors')
   PROG = root_parser.prog
   if len(all_args) == 0:
     write_stderr('No args provided.')

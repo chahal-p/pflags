@@ -192,6 +192,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
 def get_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']
   parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
+  is_help_requested_check(parsedDataDict)
   if PARSED_ARGS.name not in parsedDataDict['flagsIDForName']:
     exit(1)
   values = parsedDataDict['flagValuesForID'][parsedDataDict['flagsIDForName'][PARSED_ARGS.name]]
@@ -208,6 +209,7 @@ def get_cmd():
 def unparsed_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']
   parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
+  is_help_requested_check(parsedDataDict)
   unparsed = parsedDataDict['nonFlagArgs']
   for x in unparsed:
     write_stdout(x)
@@ -230,6 +232,11 @@ def exec(external_args, flags_def_parser):
     unparsed_cmd()
   if PARSED_ARGS.__subcommand__ == 'printhelp':
     printhelp_cmd()
+
+def is_help_requested_check(parsedDataDict: dict):
+  if parsedDataDict['help']:
+    write_stderr('Help is requested with either -h/--help flag, use printhelp subcommand to print help')
+    exit(2)
 
 def write_stdout(data, end='\n'):
   data = str(data)

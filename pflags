@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 
 from argparse import ArgumentParser, _SubParsersAction, RawTextHelpFormatter, ArgumentTypeError, ArgumentError
-from typing import Union
 
+import argcomplete
 import ast
 import base64
 import json
+import os
 import re
 import sys
+import datetime
 
 class ERROR_CODE:
   SUCCESS = 0
@@ -175,6 +177,11 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
     help_flag_overriden = False
   except ArgumentError:
     pass
+  try:
+    gen_completion_code(external_cmd_name, to_be_parsed_parser)
+  except Exception:
+    # Ignoring any failures related to auto completion
+    pass
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
     parsedDataDict['help'] = to_be_parsed_parser.format_help()
   else:
@@ -194,6 +201,21 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
     parsedDataDict['flagsIDForName'] = flag_ids_map
   parsedData = json.dumps(parsedDataDict)
   write_stdout(base64.b64encode(parsedData.encode()).decode(), end=None)
+
+def gen_completion_code(cmd_name: str, parser: ArgumentParser):
+  argcomplete.autocomplete(parser)
+  comp_dir = '%s/.pflagscomp' % os.path.expanduser('~')
+  if not os.path.exists(comp_dir):
+    os.mkdir(comp_dir)
+  for sh in ['bash', 'zsh']:
+    comp_file = '%s/%s.%s' % (comp_dir, cmd_name, sh)
+    if os.path.exists(comp_file):
+      last_mod_timestamp = os.path.getmtime(comp_file)
+      last_mod_time = datetime.datetime.fromtimestamp(last_mod_timestamp, datetime.timezone.utc)
+      if datetime.datetime.now(datetime.timezone.utc) - last_mod_time < datetime.timedelta(minutes=1):
+        return
+    with open(comp_file, 'w+') as f:
+      f.write(argcomplete.shellcode([cmd_name,], shell=sh))
 
 def get_cmd():
   parsedData = PARSED_ARGS.__dict__['$parsedData']

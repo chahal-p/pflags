@@ -38,7 +38,7 @@ Multiple values output can be converted to array by following command
   readarray -t x <<< $(pflags unparsed "$parsedData")'''
 
 PRINTHELP_COMMAND_DESC = '''\
-Prints the help if requested with eith -h or --help flags.
+Prints the help if requested with either -h or --help flags.
 '''
 
 def add_parse_subparser(sub_parsers: _SubParsersAction):

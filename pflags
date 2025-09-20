@@ -9,6 +9,12 @@ import json
 import re
 import sys
 
+class ERROR_CODE:
+  SUCCESS = 0
+  ERROR = 1
+  USAGE = 2
+  NOT_FOUND = 3
+
 PROG = None
 
 PARSED_ARGS = None
@@ -179,7 +185,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
         unrecognized.append(u)
     if unrecognized:
       write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}')
-      return
+      exit(ERROR_CODE.USAGE)
     # Setting defaults if arg is not provided.
     for k in defaults:
       if EXTERNAL_FLAGS.__dict__[k] is None:
@@ -194,8 +200,10 @@ def get_cmd():
   parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
   is_help_requested_check(parsedDataDict)
   if PARSED_ARGS.name not in parsedDataDict['flagsIDForName']:
-    exit(1)
+    exit(ERROR_CODE.ERROR)
   values = parsedDataDict['flagValuesForID'][parsedDataDict['flagsIDForName'][PARSED_ARGS.name]]
+  if values is None:
+    exit(ERROR_CODE.NOT_FOUND)
   if not isinstance(values, list):
     values = [values,]
   for v in values:
@@ -221,7 +229,7 @@ def printhelp_cmd():
   if help:
     write_stdout(help, end=None)
     return
-  exit(1)
+  exit(ERROR_CODE.ERROR)
 
 def exec(external_args, flags_def_parser):
   if PARSED_ARGS.__subcommand__ == 'parse':
@@ -236,7 +244,7 @@ def exec(external_args, flags_def_parser):
 def is_help_requested_check(parsedDataDict: dict):
   if parsedDataDict['help']:
     write_stderr('Help is requested with either -h/--help flag, use printhelp subcommand to print help')
-    exit(2)
+    exit(ERROR_CODE.USAGE)
 
 def write_stdout(data, end='\n'):
   data = str(data)
@@ -259,7 +267,7 @@ def main():
   PROG = root_parser.prog
   if len(all_args) == 0:
     write_stderr('No args provided.')
-    exit(1)
+    exit(ERROR_CODE.ERROR)
   sub_parsers = root_parser.add_subparsers(dest='__subcommand__')
   parse_parser, flags_def_parser = add_parse_subparser(sub_parsers)
   add_get_subparser(sub_parsers)

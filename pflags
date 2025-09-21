@@ -62,6 +62,7 @@ def add_parse_subparser(sub_parsers: _SubParsersAction):
   flags_def_parser.add_argument('-a', '--allowed', metavar='', type=str, action='append', help='Allowed Values\n  (Can be specified multiple times)')
   flags_def_parser.add_argument('--regex', metavar='', help='Regex for string validatin\n  (Only applicable to --type=string)')
   parser: ArgumentParser = sub_parsers.add_parser(usage='', name='parse', description=PARSE_COMMAND_DESC, add_help=False, formatter_class=RawTextHelpFormatter)
+  parser.add_argument('--name', dest='__cmd_name__', metavar='', required=True, type=str, help='Name of parent command, it will be referenced in errors')
   parser.add_argument('--description', metavar='', type=str, default=None, help='Desciption of command')
   parser.add_argument('-h', '--help', action='store_true', help="show this help message and exit")
   return parser, flags_def_parser
@@ -136,7 +137,7 @@ def validate_flag_values(FLAGS_DEF):
     return bool_type
 
 def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
-  external_cmd_name = PARSED_ARGS.__cmd_name__ if PARSED_ARGS.__cmd_name__ else PROG
+  external_cmd_name = PARSED_ARGS.__cmd_name__
   parsedDataDict = {
     '__cmd_name__': external_cmd_name,
     'nonFlagArgs': [],
@@ -146,7 +147,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
   }
   flags_def_args_raw, to_be_parsed = split_list_by_first_occurrence(external_args, '----', n=1)
   flags_def_args = split_list_by_first_occurrence(flags_def_args_raw, delimiter='--')
-  to_be_parsed_parser = ArgumentParser(prog=PARSED_ARGS.__cmd_name__, description=PARSED_ARGS.description, formatter_class=RawTextHelpFormatter, add_help=False)
+  to_be_parsed_parser = ArgumentParser(prog=external_cmd_name, description=PARSED_ARGS.description, formatter_class=RawTextHelpFormatter, add_help=False)
   defaults = {}
   flag_ids_map = {}
   for fda in flags_def_args:
@@ -286,7 +287,6 @@ def main():
   all_args = sys.argv[1:]
   internal_args, external_args = split_list_by_first_occurrence(all_args, '----', n=1)
   root_parser = ArgumentParser(description='A tool to parse and extract flags from command line arguments', formatter_class=RawTextHelpFormatter)
-  root_parser.add_argument('--name', dest='__cmd_name__', metavar='', type=str, help='Name of parent command, it will be referenced in errors')
   PROG = root_parser.prog
   if len(all_args) == 0:
     write_stderr('No args provided.')

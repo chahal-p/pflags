@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
-from argparse import ArgumentParser, _SubParsersAction, RawTextHelpFormatter, ArgumentTypeError, ArgumentError
+from argparse import ArgumentParser, \
+                    _SubParsersAction, \
+                    RawTextHelpFormatter, \
+                    ArgumentTypeError, \
+                    ArgumentError
 
-# import argcomplete
 import ast
 import base64
 import json
-import os
 import re
 import sys
-import datetime
 
 class ERROR_CODE:
   SUCCESS = 0
@@ -177,11 +178,11 @@ def parse_cmd(external_args: list[str], flags_def_parser: ArgumentParser):
     help_flag_overriden = False
   except ArgumentError:
     pass
-  # try:
-  #   gen_completion_code(external_cmd_name, to_be_parsed_parser)
-  # except Exception:
-  #   # Ignoring any failures related to auto completion
-  #   pass
+  try:
+    import argcomplete
+    argcomplete.autocomplete(to_be_parsed_parser)
+  except ModuleNotFoundError:
+    pass
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
     parsedDataDict['help'] = to_be_parsed_parser.format_help()
   else:

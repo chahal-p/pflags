@@ -17,8 +17,8 @@ PROG = None
 
 PARSED_ARGS = None
 
-PARSE_COMMAND_USAGE = '''\
-%s parse --name [--description ] [-h] ---- <Defind flags options> -- <Defind flags options> -- ... ---- <To be parsed args>'''
+PARSE_COMMAND_USAGE_SUFFIX = '''\
+---- <Defind flags options> -- <Defind flags options> -- ... ---- <To be parsed args>'''
 
 PARSE_COMMAND_DESC = '''\
 Parses the args and output base64 of parsed args
@@ -56,10 +56,9 @@ def add_parse_subparser(sub_parsers: argparse._SubParsersAction):
   flags_def_parser.add_argument('--default', metavar='', type=str, action='append', help='Default values\n  (Can be specified multiple times)')
   flags_def_parser.add_argument('-a', '--allowed', metavar='', type=str, action='append', help='Allowed Values\n  (Can be specified multiple times)')
   flags_def_parser.add_argument('--regex', metavar='', help='Regex for string validatin\n  (Only applicable to --type=string)')
-  parser: argparse.ArgumentParser = sub_parsers.add_parser(usage='', name='parse', description=PARSE_COMMAND_DESC, add_help=False, formatter_class=argparse.RawTextHelpFormatter)
+  parser: argparse.ArgumentParser = sub_parsers.add_parser(name='parse', description=PARSE_COMMAND_DESC, add_help=True, formatter_class=get_parse_cmd_help_formatter(flags_def_parser))
   parser.add_argument('--name', dest='__cmd_name__', metavar='', required=True, type=str, help='Name of parent command, it will be referenced in errors')
   parser.add_argument('--description', metavar='', type=str, default=None, help='Desciption of command')
-  parser.add_argument('-h', '--help', action=get_parse_cmd_help_action(parser, flags_def_parser), help="show this help message and exit")
   return parser, flags_def_parser
 
 def add_get_subparser(sub_parsers: argparse._SubParsersAction):
@@ -94,23 +93,18 @@ def split_list_by_first_occurrence(args: list, delimiter: str, n:int = None) -> 
     return res
   return res + [[]] * (n + 1 - len(res))
 
-def get_parse_cmd_help_action(parse_parser: argparse.ArgumentParser, flags_def_parser: argparse.ArgumentParser):
-  class CustomHelpAction(argparse.Action):
-    def __init__(self, option_strings, dest=argparse.SUPPRESS, default=argparse.SUPPRESS, help=None):
-      super(CustomHelpAction, self).__init__(
-        option_strings=option_strings,
-        dest=dest,
-        default=default,
-        nargs=0,
-        help=help)
+def get_parse_cmd_help_formatter(flags_def_parser: argparse.ArgumentParser):
+  class ParseCmdHelpFormatter(argparse.RawTextHelpFormatter):
+    def _format_usage(self, usage, actions, groups, prefix):
+      return super()._format_usage(usage, actions, groups, prefix).rstrip('\n') + f' {PARSE_COMMAND_USAGE_SUFFIX}\n\n'
 
-    def __call__(self, parser, namespace, values, option_string=None):
-      parse_help = parse_parser.format_help().lstrip('usage:').strip(' ').strip('\n')
+    def format_help(self):
+      help = super().format_help()
+      if len(help.splitlines()) == 1:
+        return help
       flags_def_help = 'Flags defining options:' + flags_def_parser.format_help().lstrip('usage:').strip(' ').strip('\n').strip('options:')
-      help = 'usage: {}\n\n{}\n\n{}\n'.format(PARSE_COMMAND_USAGE % PROG, parse_help, flags_def_help)
-      write_stdout(help, end=None)
-      exit(0)
-  return CustomHelpAction
+      return '{}\n{}\n'.format(help, flags_def_help)
+  return ParseCmdHelpFormatter
 
 def validate_flag_values(FLAGS_DEF):
   def string_type(val):

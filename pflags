@@ -58,6 +58,7 @@ def add_parse_subparser(sub_parsers: argparse._SubParsersAction):
   flags_def_parser.add_argument('--regex', metavar='', help='Regex for string validatin\n  (Only applicable to --type=string)')
   parser: argparse.ArgumentParser = sub_parsers.add_parser(name='parse', description=PARSE_COMMAND_DESC, add_help=True, formatter_class=get_parse_cmd_help_formatter(flags_def_parser))
   parser.add_argument('--name', dest='__cmd_name__', metavar='', required=True, type=str, help='Name of parent command, it will be referenced in errors')
+  parser.add_argument('--usage', metavar='', type=str, help='Provide custom usage for command', default=None)
   parser.add_argument('--description', metavar='', type=str, default=None, help='Desciption of command')
   return parser, flags_def_parser
 
@@ -148,7 +149,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
   }
   flags_def_args_raw, to_be_parsed = split_list_by_first_occurrence(external_args, '----', n=1)
   flags_def_args = split_list_by_first_occurrence(flags_def_args_raw, delimiter='--')
-  to_be_parsed_parser = argparse.ArgumentParser(prog=external_cmd_name, description=PARSED_ARGS.description, formatter_class=argparse.RawTextHelpFormatter, add_help=False)
+  to_be_parsed_parser = argparse.ArgumentParser(prog=external_cmd_name, usage=PARSED_ARGS.usage, description=PARSED_ARGS.description, formatter_class=argparse.RawTextHelpFormatter, add_help=False)
   defaults = {}
   flag_ids_map = {}
   for fda in flags_def_args:

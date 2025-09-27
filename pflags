@@ -164,6 +164,9 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
     if FLAGS_DEF.long:
       flag_names.append(f'--{FLAGS_DEF.long}')
       flag_ids_map[FLAGS_DEF.long] = flag_id
+    if len(flag_names) == 0:
+      write_stderr('At least one of -s/--short or -l/--long is required.')
+      exit(ERROR_CODE.USAGE)
     flag_help: str = FLAGS_DEF.help
     if flag_help:
       try:
@@ -192,6 +195,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
     parsedDataDict['help'] = to_be_parsed_parser.format_help()
   else:
     EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
+    parsedDataDict['nonFlagArgs'] = unparsed
     unrecognized = []
     for u in unparsed:
       if u.startswith('-'):

@@ -50,7 +50,7 @@ def add_parse_subparser(sub_parsers: argparse._SubParsersAction):
   flags_def_parser.add_argument('-s', '--short', metavar='', help='Short name for flag')
   flags_def_parser.add_argument('-l', '--long', metavar='', help='Long name for flag')
   allowed_values = ['string', 'number', 'bool']
-  flags_def_parser.add_argument('-t', '--type', metavar='', required=True, help=f'Type of flag. (required)\n  Allowed values: {', '.join(allowed_values)}', choices=allowed_values)
+  flags_def_parser.add_argument('-t', '--type', metavar='', required=True, help='Type of flag. (required)\n  Allowed values: {}'.format(', '.join(allowed_values)), choices=allowed_values)
   flags_def_parser.add_argument('-h', '--help', metavar='', help='Help of the flag')
   flags_def_parser.add_argument('-r', '--required', action='store_true', help='If a flag is required')
   flags_def_parser.add_argument('--default', metavar='', type=str, action='append', help='Default values\n  (Can be specified multiple times)')

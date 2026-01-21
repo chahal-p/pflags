@@ -10,7 +10,6 @@ class ERROR_CODE:
   ERROR = 1
   USAGE = 2
   NOT_FOUND = 3
-  PRINT_HELP = 100
 
 PROG = None
 
@@ -153,8 +152,7 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
   except argparse.ArgumentError:
     pass
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
-    write_stdout(to_be_parsed_parser.format_help(), end=None)
-    exit(ERROR_CODE.PRINT_HELP)
+    write_stdout(' '.join(['--help', stringify_flag_value(to_be_parsed_parser.format_help())]), end=None)
   else:
     EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
     unrecognized = []

@@ -2,8 +2,6 @@
 
 import argparse
 import ast
-import base64
-import json
 import re
 import sys
 
@@ -21,29 +19,9 @@ PARSE_COMMAND_USAGE_SUFFIX = '''\
 ---- <Defind flags options> -- <Defind flags options> -- ... ---- <To be parsed args>'''
 
 PARSE_COMMAND_DESC = '''\
-Parses the args and output base64 of parsed args
+Parses and validates the args based on the defined flag options
 
 Note: <Defind flags options> are separated by hypen(--)'''
-
-GET_COMMAND_DESC = '''\
-Get value(s) of a specific flag from parsed results.'''
-
-GET_COMMAND_EPILOG = '''\
-Multiple values output can be converted to array by following command\n  readarray -t x <<< $(pflags get --name abc "$parsedData")'''
-
-UNPARSED_COMMAND_USAGE = '''\
-%s unparsed "$parsedData"'''
-
-UNPARSED_COMMAND_DESC = '''\
-Get non flag args.'''
-
-UNPARSED_COMMAND_EPILOG = '''\
-Multiple values output can be converted to array by following command
-  readarray -t x <<< $(pflags unparsed "$parsedData")'''
-
-PRINTHELP_COMMAND_DESC = '''\
-Prints the help if requested with either -h or --help flags.
-'''
 
 def add_parse_subparser(sub_parsers: argparse._SubParsersAction):
   flags_def_parser = argparse.ArgumentParser(usage='', description='', add_help=False, formatter_class=argparse.RawTextHelpFormatter)
@@ -61,22 +39,6 @@ def add_parse_subparser(sub_parsers: argparse._SubParsersAction):
   parser.add_argument('--usage', metavar='', type=str, help='Provide custom usage for command', default=None)
   parser.add_argument('--description', metavar='', type=str, default=None, help='Desciption of command')
   return parser, flags_def_parser
-
-def add_get_subparser(sub_parsers: argparse._SubParsersAction):
-  parser: argparse.ArgumentParser = sub_parsers.add_parser(name='get', description=GET_COMMAND_DESC, epilog=GET_COMMAND_EPILOG, formatter_class=argparse.RawTextHelpFormatter)
-  parser.add_argument('-n', '--name', metavar='', required=True, help='Name of flag, any one of either short or long name can be provided.')
-  parser.add_argument('$parsedData', type=str)
-  return parser
-
-def add_unparsed_subparser(sub_parsers: argparse._SubParsersAction):
-  parser: argparse.ArgumentParser = sub_parsers.add_parser(name='unparsed', description=UNPARSED_COMMAND_DESC, epilog=UNPARSED_COMMAND_EPILOG, formatter_class=argparse.RawTextHelpFormatter)
-  parser.add_argument('$parsedData', type=str)
-  return parser
-
-def add_printhelp_subparser(sub_parsers: argparse._SubParsersAction):
-  parser: argparse.ArgumentParser = sub_parsers.add_parser(name='printhelp', description=PRINTHELP_COMMAND_DESC, formatter_class=argparse.RawTextHelpFormatter)
-  parser.add_argument('$parsedData', type=str)
-  return parser
 
 def split_list_by_first_occurrence(args: list, delimiter: str, n:int = None) -> list[list]:
   if n is not None and n < 1:
@@ -138,15 +100,16 @@ def validate_flag_values(FLAGS_DEF):
   if FLAGS_DEF.type == 'bool':
     return bool_type
 
+def stringify_flag_value(val: any):
+  if isinstance(val, bool):
+    return 'true' if val else 'false'
+  if isinstance(val, str):
+    val = val.replace("'", "'\\''")
+    return f"'{val}'"
+  return str(val)
+
 def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParser):
   external_cmd_name = PARSED_ARGS.__cmd_name__
-  parsedDataDict = {
-    '__cmd_name__': external_cmd_name,
-    'nonFlagArgs': [],
-    'flagValuesForID': {},
-    'flagsIDForName': {},
-    'help': None
-  }
   flags_def_args_raw, to_be_parsed = split_list_by_first_occurrence(external_args, '----', n=1)
   flags_def_args = split_list_by_first_occurrence(flags_def_args_raw, delimiter='--')
   to_be_parsed_parser = argparse.ArgumentParser(prog=external_cmd_name, usage=PARSED_ARGS.usage, description=PARSED_ARGS.description, formatter_class=argparse.RawTextHelpFormatter, add_help=False)
@@ -157,16 +120,18 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
       continue
     FLAGS_DEF = flags_def_parser.parse_args(fda)
     if not FLAGS_DEF.short and not FLAGS_DEF.long:
-      write_stderr('Either short or long name is required')
+      write_stderr('Either short or long name is required', end='\n')
       exit(ERROR_CODE.USAGE)
     flag_id = FLAGS_DEF.long if FLAGS_DEF.long else FLAGS_DEF.short
     flag_names = []
     if FLAGS_DEF.short:
       flag_names.append(f'-{FLAGS_DEF.short}')
-      flag_ids_map[FLAGS_DEF.short] = flag_id
     if FLAGS_DEF.long:
       flag_names.append(f'--{FLAGS_DEF.long}')
-      flag_ids_map[FLAGS_DEF.long] = flag_id
+    if FLAGS_DEF.long:
+      flag_ids_map[f'--{FLAGS_DEF.long}'] = flag_id
+    elif FLAGS_DEF.short:
+      flag_ids_map[f'-{FLAGS_DEF.short}'] = flag_id
     flag_help: str = FLAGS_DEF.help
     if flag_help:
       try:
@@ -186,105 +151,46 @@ def parse_cmd(external_args: list[str], flags_def_parser: argparse.ArgumentParse
     help_flag_overriden = False
   except argparse.ArgumentError:
     pass
-  try:
-    import argcomplete
-    argcomplete.autocomplete(to_be_parsed_parser)
-  except ModuleNotFoundError:
-    pass
   if not help_flag_overriden and len([x for x in to_be_parsed if x == '-h' or x == '--help']) > 0:
-    parsedDataDict['help'] = to_be_parsed_parser.format_help()
+    write_stdout(' '.join(['--help', stringify_flag_value(to_be_parsed_parser.format_help())]), end=None)
   else:
     EXTERNAL_FLAGS, unparsed = to_be_parsed_parser.parse_known_args(to_be_parsed)
-    parsedDataDict['nonFlagArgs'] = unparsed
     unrecognized = []
     for u in unparsed:
       if u.startswith('-'):
         unrecognized.append(u)
     if unrecognized:
-      write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}')
+      write_stderr(f'{external_cmd_name}: error: unrecognized arguments: {unrecognized}', end='\n')
       exit(ERROR_CODE.USAGE)
     # Setting defaults if arg is not provided.
     for k in defaults:
       if EXTERNAL_FLAGS.__dict__[k] is None:
         EXTERNAL_FLAGS.__dict__[k] = defaults[k]
-    parsedDataDict['flagValuesForID'] = EXTERNAL_FLAGS.__dict__
-    parsedDataDict['flagsIDForName'] = flag_ids_map
-  parsedData = json.dumps(parsedDataDict)
-  write_stdout(base64.b64encode(parsedData.encode()).decode(), end=None)
-
-# def gen_completion_code(cmd_name: str, parser: ArgumentParser):
-#   argcomplete.autocomplete(parser)
-#   comp_dir = '%s/.pflagscomp' % os.path.expanduser('~')
-#   if not os.path.exists(comp_dir):
-#     os.mkdir(comp_dir)
-#   for sh in ['bash', 'zsh']:
-#     comp_file = '%s/%s.%s' % (comp_dir, cmd_name, sh)
-#     if os.path.exists(comp_file):
-#       last_mod_timestamp = os.path.getmtime(comp_file)
-#       last_mod_time = datetime.datetime.fromtimestamp(last_mod_timestamp, datetime.timezone.utc)
-#       if datetime.datetime.now(datetime.timezone.utc) - last_mod_time < datetime.timedelta(minutes=1):
-#         return
-#     with open(comp_file, 'w+') as f:
-#       f.write(argcomplete.shellcode([cmd_name,], shell=sh))
-
-def get_cmd():
-  parsedData = PARSED_ARGS.__dict__['$parsedData']
-  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
-  is_help_requested_check(parsedDataDict)
-  if PARSED_ARGS.name not in parsedDataDict['flagsIDForName']:
-    exit(ERROR_CODE.ERROR)
-  values = parsedDataDict['flagValuesForID'][parsedDataDict['flagsIDForName'][PARSED_ARGS.name]]
-  if values is None:
-    exit(ERROR_CODE.NOT_FOUND)
-  if not isinstance(values, list):
-    values = [values,]
-  for v in values:
-    if v is True:
-      write_stdout('true')
-    elif v is False:
-      write_stdout('false')
-    else:
-      write_stdout(v)
-
-def unparsed_cmd():
-  parsedData = PARSED_ARGS.__dict__['$parsedData']
-  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
-  is_help_requested_check(parsedDataDict)
-  unparsed = parsedDataDict['nonFlagArgs']
-  for x in unparsed:
-    write_stdout(x)
-
-def printhelp_cmd():
-  parsedData = PARSED_ARGS.__dict__['$parsedData']
-  parsedDataDict = json.loads(base64.b64decode(parsedData).decode())
-  help = parsedDataDict['help']
-  if help:
-    write_stdout(help, end=None)
-    return
-  exit(ERROR_CODE.ERROR)
+    parsed_args = []
+    for k, v in flag_ids_map.items():
+      val = EXTERNAL_FLAGS.__dict__[v]
+      if isinstance(val, list):
+        for x in val:
+          parsed_args.append(k)
+          parsed_args.append(stringify_flag_value(x))
+      else:
+        parsed_args.append(k)
+        parsed_args.append(stringify_flag_value(val))
+    parsed_args.append('--')
+    parsed_args.extend([stringify_flag_value(x) for x in unparsed])
+    write_stdout(' '.join(parsed_args))
 
 def exec(external_args, flags_def_parser):
   if PARSED_ARGS.__subcommand__ == 'parse':
     parse_cmd(external_args, flags_def_parser)
-  if PARSED_ARGS.__subcommand__ == 'get':
-    get_cmd()
-  if PARSED_ARGS.__subcommand__ == 'unparsed':
-    unparsed_cmd()
-  if PARSED_ARGS.__subcommand__ == 'printhelp':
-    printhelp_cmd()
 
-def is_help_requested_check(parsedDataDict: dict):
-  if parsedDataDict['help']:
-    write_stderr('Help is requested with either -h/--help flag, use printhelp subcommand to print help')
-    exit(ERROR_CODE.USAGE)
-
-def write_stdout(data, end='\n'):
+def write_stdout(data, end=None):
   data = str(data)
   if end:
     data = data + end
   sys.stdout.write(data)
 
-def write_stderr(data, end='\n'):
+def write_stderr(data, end=None):
   data = str(data)
   if end:
     data = data + end
@@ -294,16 +200,13 @@ def main():
   global PARSED_ARGS, PROG
   all_args = sys.argv[1:]
   internal_args, external_args = split_list_by_first_occurrence(all_args, '----', n=1)
-  root_parser = argparse.ArgumentParser(description='A tool to parse and extract flags from command line arguments', formatter_class=argparse.RawTextHelpFormatter)
+  root_parser = argparse.ArgumentParser(description='A tool to parse and validate flags from command line arguments', formatter_class=argparse.RawTextHelpFormatter)
   PROG = root_parser.prog
   if len(all_args) == 0:
-    write_stderr('No args provided.')
+    write_stderr('No args provided.', end='\n')
     exit(ERROR_CODE.ERROR)
   sub_parsers = root_parser.add_subparsers(dest='__subcommand__')
   parse_parser, flags_def_parser = add_parse_subparser(sub_parsers)
-  add_get_subparser(sub_parsers)
-  add_unparsed_subparser(sub_parsers)
-  add_printhelp_subparser(sub_parsers)
   PARSED_ARGS = root_parser.parse_args(internal_args)
   exec(external_args, flags_def_parser)
 
